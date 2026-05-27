@@ -90,6 +90,7 @@ void MainWindow::setupToolBar(){
 void MainWindow::setupCentralWidget(){
     auto *mainSplitter = new QSplitter(Qt::Horizontal, this);
 
+    // 左边局部布局
     auto *leftWidget = new QWidget(mainSplitter);
     auto *leftLayout = new QVBoxLayout(leftWidget);
 
@@ -98,7 +99,7 @@ void MainWindow::setupCentralWidget(){
 
     m_resourceList = new QListWidget(projectGroup);
     m_resourceList->setSelectionMode(QAbstractItemView::SingleSelection);
-    connect(m_resourceList, &QListWidget::itemClicked, this, &MainWindow::importImages);
+    connect(m_resourceList, &QListWidget::itemClicked, this, &MainWindow::showSelectedResource);
 
     auto *importButton = new QPushButton("导入资源", projectGroup);
     connect(importButton, &QPushButton::clicked, this, &MainWindow::importImages);
@@ -116,6 +117,7 @@ void MainWindow::setupCentralWidget(){
     leftLayout->addWidget(projectGroup);
     leftLayout->addWidget(effectGroup);
 
+    // 右边局部布局
     auto *rightWidget = new QWidget(mainSplitter);
     auto *rightLayout = new QVBoxLayout(rightWidget);
 
@@ -160,19 +162,18 @@ void MainWindow::setupCentralWidget(){
     taskTable->setHorizontalHeaderLabels({"资源", "特效预设", "状态", "进度", "输出路径"});
     taskTable->horizontalHeader()->setStretchLastSection(true);
 
-    auto *logTextEdit = new QPlainTextEdit(bottomTabs);
-    logTextEdit->setReadOnly(true);
-    logTextEdit->appendPlainText("RenderLaz启动，等待导入资源...");
+    m_logTextEdit = new QPlainTextEdit(bottomTabs);
+    m_logTextEdit->setReadOnly(true);
 
     bottomTabs->addTab(parameterWidget, "参数面板");
     bottomTabs->addTab(shaderEditor, "Shader编辑");
     bottomTabs->addTab(taskTable, "批处理任务");
-    bottomTabs->addTab(logTextEdit, "系统日志");
+    bottomTabs->addTab(m_logTextEdit, "系统日志");
 
-    // 布局
     rightLayout->addWidget(m_previewLabel);
     rightLayout->addWidget(bottomTabs);
 
+    // 总布局
     mainSplitter->addWidget(leftWidget);
     mainSplitter->addWidget(rightWidget);
     mainSplitter->setStretchFactor(0, 1);
@@ -183,4 +184,104 @@ void MainWindow::setupCentralWidget(){
 
 void MainWindow::setupStatusBar(){
     statusBar()->showMessage("未导入资源 | 渲染器未初始化 | 无批处理任务");
+}
+
+void MainWindow::importImages(){
+    // 弹出对话框，选择图片文件，返回文件的绝对路径
+    const QStringList filePaths = QFileDialog::getOpenFileNames(
+        this, "导入图片", QString(), "*Images(*.png *.jpg *.jpeg *.bmp *.webp)"
+    );
+
+    if(filePaths.isEmpty()){
+        return;
+    }
+
+    QStringList errorMessages;
+
+    // 获取到的路径
+    const QList<ImageResource> addedResources = m_resourceManager.addImage(filePaths, &errorMessages);
+
+    for(const QString &errorMessage : errorMessages){
+        m_logger.warning(errorMessage);
+    }
+
+    for(const ImageResource &resource : addedResources){
+        // 创建一个列表项，显示文件名并自动添加到QListWidget中
+        auto *item = new QListWidgetItem(resource.fileName, m_resourceList);
+        item->setData(Qt::UserRole, resource.filePath);
+        item->setToolTip(resource.filePath); // 鼠标悬停时显示完整路径作为提示
+    }
+
+    if(addedResources.isEmpty()){
+        m_logger.warning("没有导入的图片资源");
+        return;
+    }
+
+    m_logger.info(QString("导入完成：%1 张图片").arg(addedResources.size()));
+    statusBar()->showMessage(QString("已导入 %1 张照片").arg(m_resourceManager.resources().size()));
+
+    if(m_currentImage.isNull() && m_resourceList->count() > 0){
+        m_resourceList->setCurrentRow(0);
+        // 流程提交给下一个函数，默认显示第一张图
+        showSelectedResource(m_resourceList->item(0));
+    }
+}
+
+void MainWindow::showSelectedResource(QListWidgetItem *item){
+    if(!item){
+        return;
+    }
+
+    const QString filePath = item->data(Qt::UserRole).toString();
+
+    QString errorMessage;
+    QImage image = m_resourceManager.loadImage(filePath, &errorMessage);
+
+    if(image.isNull()){
+        m_logger.error(errorMessage);
+        statusBar()->showMessage("图片加载失败");
+        return;
+    }
+
+    m_currentImagePath = filePath;
+    m_currentImage = image;
+
+    updatePreviewPixmap();
+
+    // QFileInfo这个类可以获取文件的各类属性，传入文件路径
+    const QFileInfo fileInfo(filePath);
+    m_logger.info("正在浏览：" + fileInfo.fileName());
+    statusBar()->showMessage("当前图片：" + fileInfo.fileName());
+}
+
+void MainWindow::updatePreviewPixmap(){
+    if(!m_previewLabel || m_currentImage.isNull()){
+        return;
+    }
+
+    const QSize targetSize = m_previewLabel->contentsRect().size();
+    if(targetSize.isEmpty()){
+        return;
+    }
+
+    const QPixmap pixmap = QPixmap::fromImage(m_currentImage).scaled(
+        targetSize, Qt::KeepAspectRatio, Qt::SmoothTransformation
+    );
+
+    // 显示
+    m_previewLabel->setPixmap(pixmap);
+
+}
+
+void MainWindow::resizeEvent(QResizeEvent *event){
+    // 更新
+    QMainWindow::resizeEvent(event);
+    updatePreviewPixmap();
+}
+
+void MainWindow::appendLog(const QString &message){
+    // slot：处理logger传来的数据
+    if(m_logTextEdit){
+        m_logTextEdit->appendPlainText(message);
+    }
 }

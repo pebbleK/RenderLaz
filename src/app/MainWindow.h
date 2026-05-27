@@ -17,6 +17,9 @@ public:
     explicit MainWindow(QWidget *parent = nullptr);
     ~MainWindow() override = default;
 
+protected:
+    void resizeEvent(QResizeEvent *event) override;
+
 private:
     void setupMenuBar();
     void setupToolBar();
@@ -32,7 +35,7 @@ private:
     QLabel *m_previewLabel = nullptr;
     QPlainTextEdit *m_logTextEdit = nullptr;
 
-    ResourceManager *m_resourceManager;
+    ResourceManager m_resourceManager;
     Logger m_logger;
 
     QString m_currentImagePath;
