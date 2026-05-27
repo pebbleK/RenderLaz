@@ -1,0 +1,23 @@
+{
+    "configurations": [
+        {
+            "name": "Qt MinGW",
+            "compilerPath": "D:/Qt/Tools/mingw1310_64/bin/g++.exe",
+            "cppStandard": "c++17",
+            "intelliSenseMode": "windows-gcc-x64",
+            "includePath": [
+                "${workspaceFolder}/src",
+                "D:/Qt/6.10.1/mingw_64/include",
+                "D:/Qt/6.10.1/mingw_64/include/QtCore",
+                "D:/Qt/6.10.1/mingw_64/include/QtGui",
+                "D:/Qt/6.10.1/mingw_64/include/QtWidgets"
+            ],
+            "defines": [
+                "QT_CORE_LIB",
+                "QT_GUI_LIB",
+                "QT_WIDGETS_LIB"
+            ]
+        }
+    ],
+    "version": 4
+}
