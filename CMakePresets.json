@@ -1,0 +1,22 @@
+{
+    "version": 6,
+    "configurePresets": [
+        {
+            "name": "macos-ninja",
+            "displayName": "macOS Ninja",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build-macos",
+            "cacheVariables": {
+                "CMAKE_PREFIX_PATH": "/opt/homebrew",
+                "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+            }
+        }
+    ],
+    "buildPresets": [
+        {
+            "name": "macos-ninja",
+            "displayName": "macOS Ninja",
+            "configurePreset": "macos-ninja"
+        }
+    ]
+}

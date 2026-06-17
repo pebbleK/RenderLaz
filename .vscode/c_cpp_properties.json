@@ -1,16 +1,16 @@
 {
     "configurations": [
         {
-            "name": "Qt MinGW",
-            "compilerPath": "D:/Qt/Tools/mingw1310_64/bin/g++.exe",
+            "name": "Qt macOS",
+            "compilerPath": "/usr/bin/clang++",
             "cppStandard": "c++17",
-            "intelliSenseMode": "windows-gcc-x64",
+            "intelliSenseMode": "macos-clang-arm64",
             "includePath": [
                 "${workspaceFolder}/src",
-                "D:/Qt/6.10.1/mingw_64/include",
-                "D:/Qt/6.10.1/mingw_64/include/QtCore",
-                "D:/Qt/6.10.1/mingw_64/include/QtGui",
-                "D:/Qt/6.10.1/mingw_64/include/QtWidgets"
+                "/opt/homebrew/include",
+                "/opt/homebrew/include/QtCore",
+                "/opt/homebrew/include/QtGui",
+                "/opt/homebrew/include/QtWidgets"
             ],
             "defines": [
                 "QT_CORE_LIB",

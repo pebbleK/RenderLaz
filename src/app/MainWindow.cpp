@@ -26,12 +26,23 @@
 #include <QListWidgetItem>
 #include <QPixmap>
 #include <QResizeEvent>
+#include <QDir>
+#include <QMessageBox>
+#include <QTableWidgetItem>
 
 MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent){
     setWindowTitle("RenderLaz - 实时Shader特效编辑器");
     resize(1280, 820);
 
     connect(&m_logger, &Logger::messageLogged, this, &MainWindow::appendLog);
+    connect(&m_taskManager, &TaskManager::batchStarted, this, &MainWindow::handleBatchStarted);
+    connect(&m_taskManager, &TaskManager::taskStarted, this, &MainWindow::handleTaskStarted);
+    connect(&m_taskManager, &TaskManager::taskProgressChanged, this, &MainWindow::handleTaskProgressChanged);
+    connect(&m_taskManager, &TaskManager::taskFinished, this, &MainWindow::handleTaskFinished);
+    connect(&m_taskManager, &TaskManager::taskFailed, this, &MainWindow::handleTaskFailed);
+    connect(&m_taskManager, &TaskManager::batchFinished, this, &MainWindow::handleBatchFinished);
+    connect(&m_taskManager, &TaskManager::batchCanceled, this, &MainWindow::handleBatchCanceled);
+    connect(&m_taskManager, &TaskManager::logMessage, &m_logger, &Logger::info);
 
     setupMenuBar();
     setupToolBar();
@@ -64,9 +75,11 @@ void MainWindow::setupMenuBar(){
     renderMenu->addAction("暂停预览");
 
     QMenu *taskMenu = menuBar()->addMenu("任务");
-    taskMenu->addAction("开始批处理");
-    taskMenu->addAction("取消任务");
-    taskMenu->addAction("清空任务");
+    QAction *startBatchAction = taskMenu->addAction("开始批处理");
+    connect(startBatchAction, &QAction::triggered, this, &MainWindow::startBatchProcess);
+
+    QAction *cancelTaskAction = taskMenu->addAction("取消任务");
+    connect(cancelTaskAction, &QAction::triggered, this, &MainWindow::cancelBatchProcess);
 
     QMenu *helpMenu = menuBar()->addMenu("帮助");
     helpMenu->addAction("关于");
@@ -78,13 +91,16 @@ void MainWindow::setupToolBar(){
 
     QAction *importAction = toolBar->addAction("导入资源");
     connect(importAction, &QAction::triggered, this, &MainWindow::importImages);
+
     toolBar->addAction("保存工程");
     toolBar->addSeparator();
     toolBar->addAction("编译Shader");
     toolBar->addAction("开始预览");
     toolBar->addAction("停止预览");
     toolBar->addSeparator();
-    toolBar->addAction("批量导出");
+
+    QAction *batchExportAction = toolBar->addAction("批量导出");
+    connect(batchExportAction, &QAction::triggered, this, &MainWindow::startBatchProcess);
 }
 
 void MainWindow::setupCentralWidget(){
@@ -144,30 +160,30 @@ void MainWindow::setupCentralWidget(){
     radiusSlider->setRange(0, 100);
     radiusSlider->setValue(25);
 
-    auto *outputPathEdit = new QLineEdit("./output", parameterWidget);
-    auto *progressBar = new QProgressBar(parameterWidget);
-    progressBar->setRange(0, 100);
-    progressBar->setValue(0);
+    m_outputPathEdit = new QLineEdit("./output", parameterWidget);
+    m_taskProgressBar = new QProgressBar(parameterWidget);
+    m_taskProgressBar->setRange(0, 100);
+    m_taskProgressBar->setValue(0);
 
     parameterLayout->addRow("当前特效", effectCombo);
     parameterLayout->addRow("强度", intensitySpin);
     parameterLayout->addRow("半径", radiusSlider);
-    parameterLayout->addRow("输出目录", outputPathEdit);
-    parameterLayout->addRow("任务进度", progressBar);
+    parameterLayout->addRow("输出目录", m_outputPathEdit);
+    parameterLayout->addRow("任务进度", m_taskProgressBar);
 
     auto *shaderEditor = new QPlainTextEdit(bottomTabs);
     shaderEditor->setPlainText("// Fragment shader placeholder\n// 后续在这里接入GLSL编辑与编译逻辑\n");
 
-    auto *taskTable = new QTableWidget(0, 5, bottomTabs);
-    taskTable->setHorizontalHeaderLabels({"资源", "特效预设", "状态", "进度", "输出路径"});
-    taskTable->horizontalHeader()->setStretchLastSection(true);
+    m_taskTable = new QTableWidget(0, 5, bottomTabs);
+    m_taskTable->setHorizontalHeaderLabels({"资源", "特效预设", "状态", "进度", "输出路径"});
+    m_taskTable->horizontalHeader()->setStretchLastSection(true);
 
     m_logTextEdit = new QPlainTextEdit(bottomTabs);
     m_logTextEdit->setReadOnly(true);
 
     bottomTabs->addTab(parameterWidget, "参数面板");
     bottomTabs->addTab(shaderEditor, "Shader编辑");
-    bottomTabs->addTab(taskTable, "批处理任务");
+    bottomTabs->addTab(m_taskTable, "批处理任务");
     bottomTabs->addTab(m_logTextEdit, "系统日志");
 
     rightLayout->addWidget(m_previewLabel);
@@ -176,7 +192,7 @@ void MainWindow::setupCentralWidget(){
     // 总布局
     mainSplitter->addWidget(leftWidget);
     mainSplitter->addWidget(rightWidget);
-    mainSplitter->setStretchFactor(0, 1);
+    mainSplitter->setStretchFactor(0, 1); // 设置组件拉伸占比
     mainSplitter->setStretchFactor(1, 4);
 
     setCentralWidget(mainSplitter);
@@ -284,4 +300,125 @@ void MainWindow::appendLog(const QString &message){
     if(m_logTextEdit){
         m_logTextEdit->appendPlainText(message);
     }
+}
+
+QStringList MainWindow::importedImagePaths() const{
+    QStringList paths;
+
+    for(const ImageResource &resource : m_resourceManager.resources()){
+        paths.append(resource.filePath);
+    }
+
+    return paths;
+}
+
+void MainWindow::startBatchProcess(){
+    if(m_taskManager.isRunning()){
+        m_logger.warning("任务正在处理...");
+        return;
+    }
+
+    const QStringList inputPaths = importedImagePaths();
+    if(inputPaths.empty()){
+        QMessageBox::information(this, "批处理", "请先导入图片资源");
+        return;
+    }
+
+    const QString outputDir = m_outputPathEdit->text().trimmed(); // .trimmed()两头空格去除
+
+    if(m_taskTable){
+        m_taskTable->setRowCount(inputPaths.size());
+
+        for(int row = 0; row < inputPaths.size(); ++row){
+            const QFileInfo fileInfo(inputPaths.at(row));
+
+            m_taskTable->setItem(row, 0, new QTableWidgetItem(fileInfo.fileName()));
+            m_taskTable->setItem(row, 1, new QTableWidgetItem("GrayScale"));
+            m_taskTable->setItem(row, 2, new QTableWidgetItem("等待中"));
+            m_taskTable->setItem(row, 3, new QTableWidgetItem("0%"));
+            m_taskTable->setItem(row, 4, new QTableWidgetItem(""));
+        }
+    }
+
+    if(m_taskProgressBar){
+        m_taskProgressBar->setValue(0);
+    }
+
+    m_logger.info(QString("开始后台批处理，共 %1 张图片").arg(inputPaths.size()));
+    statusBar()->showMessage("批处理运行中");
+
+    // 转入任务管理中运行
+    m_taskManager.startBatch(inputPaths, outputDir);
+}
+
+void MainWindow::cancelBatchProcess(){
+    if(!m_taskManager.isRunning()){
+        m_logger.warning("当前没有运行的任务");
+        return;
+    }
+
+    m_logger.warning("正在取消批处理任务");
+    m_taskManager.cancel();
+}
+
+void MainWindow::handleBatchStarted(int totalCount){
+    m_logger.info(QString("批处理任务已启动，任务数量：%1").arg(totalCount));
+}
+
+void MainWindow::handleTaskStarted(int row, const QString &inputPath){
+    if(m_taskTable && row >= 0 && row < m_taskTable->rowCount()){
+        m_taskTable->setItem(row, 2, new QTableWidgetItem("处理中"));
+    }
+
+    const QFileInfo fileInfo(inputPath);
+    m_logger.info("正在处理：" + fileInfo.fileName());
+}
+
+void MainWindow::handleTaskProgressChanged(int row, int progress){
+    if(m_taskTable && row >= 0 && row < m_taskTable->rowCount()){
+        m_taskTable->setItem(row, 3, new QTableWidgetItem(QString("%1%").arg(progress)));
+    }
+
+    /*
+    row * 100 - 前row张已完成的图贡献的进度（每张100per）
+    progress — 当前这张图内部的进度（0~100）
+    totalRows — 把总分平摊到总张数
+    */
+    if(m_taskProgressBar && m_taskTable && m_taskTable->rowCount() > 0){
+        const int totalRows = m_taskTable->rowCount();
+        const int overallProgress = ((row * 100) + progress) / totalRows;
+        m_taskProgressBar->setValue(overallProgress);
+    }
+}
+
+void MainWindow::handleTaskFinished(int row, const QString &outputPath){
+    if(m_taskTable && row >=0 && row < m_taskTable->rowCount()){
+        m_taskTable->setItem(row, 2, new QTableWidgetItem("完成"));
+        m_taskTable->setItem(row, 3, new QTableWidgetItem("100%"));
+        m_taskTable->setItem(row, 4, new QTableWidgetItem(outputPath));
+    }
+
+    m_logger.info("输出完成：" + outputPath);
+}
+
+void MainWindow::handleTaskFailed(int row, const QString &errorMessage){
+    if(m_taskTable && row >= 0 && row < m_taskTable->rowCount()){
+        m_taskTable->setItem(row, 2, new QTableWidgetItem("失败"));
+    }
+
+    m_logger.error(errorMessage);
+}
+
+void MainWindow::handleBatchFinished(){
+    if(m_taskProgressBar){
+        m_taskProgressBar->setValue(100);
+    }
+
+    m_logger.info("批处理任务全部完成");
+    statusBar()->showMessage("批处理完成");
+}
+
+void MainWindow::handleBatchCanceled(){
+    m_logger.warning("批处理任务已取消");
+    statusBar()->showMessage("批处理取消");
 }

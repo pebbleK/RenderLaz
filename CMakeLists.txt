@@ -21,6 +21,13 @@ qt_add_executable(RenderLaz
 
     src/logger/Logger.h
     src/logger/Logger.cpp
+
+    src/task/TaskManager.h
+    src/task/TaskManager.cpp
+
+    src/effect/EffectPass.h
+    src/effect/EffectPass.cpp
+
 )
 
 target_link_libraries(RenderLaz PRIVATE Qt6::Widgets)

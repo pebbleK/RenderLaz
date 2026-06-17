@@ -6,16 +6,8 @@
             "type": "shell",
             "command": "cmake",
             "args": [
-                "-S",
-                ".",
-                "-B",
-                "build-mingw",
-                "-G",
-                "MinGW Makefiles",
-                "-DCMAKE_PREFIX_PATH=D:/Qt/6.10.1/mingw_64",
-                "-DCMAKE_C_COMPILER=D:/Qt/Tools/mingw1310_64/bin/gcc.exe",
-                "-DCMAKE_CXX_COMPILER=D:/Qt/Tools/mingw1310_64/bin/g++.exe",
-                "-DCMAKE_MAKE_PROGRAM=D:/Qt/Tools/mingw1310_64/bin/mingw32-make.exe"
+                "--preset",
+                "macos-ninja"
             ],
             "options": {
                 "cwd": "${workspaceFolder}"
@@ -28,7 +20,8 @@
             "command": "cmake",
             "args": [
                 "--build",
-                "build-mingw"
+                "--preset",
+                "macos-ninja"
             ],
             "options": {
                 "cwd": "${workspaceFolder}"
