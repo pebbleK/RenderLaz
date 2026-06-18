@@ -4,7 +4,6 @@
 #include <QFileInfo>
 #include <QImage>
 #include <QThread>
-#include <QColor>
 
 void ImageBatchWorker::process(){
     QDir outputDir(m_outputDir);
@@ -16,11 +15,13 @@ void ImageBatchWorker::process(){
         return;
     }
 
+    const EffectPass effectPass(m_effectType);
+
     for(int row = 0; row < m_inputPaths.size(); ++row){
-        // if(m_cancelRequested){
-        //     emit canceled();
-        //     return;
-        // }
+        if(QThread::currentThread()->isInterruptionRequested()){
+            emit canceled();
+            return;
+        }
 
         const QString inputPath = m_inputPaths.at(row); // at()自带边界检查，越界会抛异常
         emit taskStarted(row, inputPath);
@@ -34,31 +35,22 @@ void ImageBatchWorker::process(){
 
         emit taskProgressChanged(row, 30);
 
-        QImage result = image.convertToFormat(QImage::Format_ARGB32);
-
-        for(int y = 0; y < result.height(); ++y){
-            // if(m_cancelRequested){
-            //     emit canceled();
-            //     return;
-            // }
-
-            if(QThread::currentThread()->isInterruptionRequested()){
-                emit canceled();
-                return;
-            }
-
-            // rbg按权重转换为灰度值
-            QRgb *line = reinterpret_cast<QRgb *>(result.scanLine(y));
-            for(int x = 0; x < result.width(); ++x){
-                const QColor color(line[x]);
-                const int gray = qGray(color.rgb());
-                line[x] = qRgba(gray, gray, gray, color.alpha());
-            }
-
-            if(result.height() > 0 && y % 20 == 0){
-                const int progress = 30 + (y * 50 / result.height());
+        QImage result = effectPass.apply(image, 
+            [](){
+            return QThread::currentThread()->isInterruptionRequested();},
+            [this, row](int effectProgress){
+                const int progress = 30 + effectProgress * 50 / 100;
                 emit taskProgressChanged(row, progress);
-            }
+            });
+        
+        if(QThread::currentThread()->isInterruptionRequested()){
+            emit canceled();
+            return;
+        }
+
+        if(result.isNull()){
+            emit taskFailed(row, "图片处理失败：" + inputPath);
+            continue;
         }
 
         emit taskProgressChanged(row, 85);
@@ -66,8 +58,8 @@ void ImageBatchWorker::process(){
         // 命名输出文件
         const QFileInfo inputInfo(inputPath);
         const QString baseName = inputInfo.completeBaseName();
-        const QString outputPath = outputDir.filePath(baseName + "_grey.png");
-
+        const QString outputPath = outputDir.filePath(
+        baseName + "_" + effectPass.effectTypeSuffix() + ".png");
         if(!result.save(outputPath)){
             emit taskFailed(row, "保存失败：" + outputPath);
             continue;
@@ -80,9 +72,9 @@ void ImageBatchWorker::process(){
     emit finished();
 }
 
-void ImageBatchWorker::cancel(){
-    m_cancelRequested = true;
-}
+// void ImageBatchWorker::cancel(){
+//     m_cancelRequested = true;
+// }
 
 TaskManager::TaskManager(QObject *parent) : QObject(parent){}
 
@@ -100,7 +92,10 @@ bool TaskManager::isRunning() const{
     return m_running;
 }
 
-void TaskManager::startBatch(const QStringList &inputPaths, const QString &outputDir){
+void TaskManager::startBatch(const QStringList &inputPaths, 
+    const QString &outputDir, 
+    EffectType effectType){
+
     if(m_running || inputPaths.isEmpty()){
         return;
     }
@@ -108,7 +103,7 @@ void TaskManager::startBatch(const QStringList &inputPaths, const QString &outpu
     m_running = true;
 
     m_thread = new QThread(this);
-    m_worker = new ImageBatchWorker(inputPaths, outputDir);
+    m_worker = new ImageBatchWorker(inputPaths, outputDir, effectType);
 
     m_worker->moveToThread(m_thread);
 
@@ -116,21 +111,27 @@ void TaskManager::startBatch(const QStringList &inputPaths, const QString &outpu
 
     connect(m_worker, &ImageBatchWorker::taskStarted, this, &TaskManager::taskStarted);
     connect(m_worker, &ImageBatchWorker::taskProgressChanged, this, &TaskManager::taskProgressChanged);
-    connect(m_worker, &ImageBatchWorker::taskFinished, this, &TaskManager::taskFinished);
-    connect(m_worker, &ImageBatchWorker::taskFailed, this, &TaskManager::taskFailed);
-    connect(m_worker, &ImageBatchWorker::logMessage, this, &TaskManager::logMessage);
+    
+    // 线程任务结束，由worker通知QThread和TaskManager
+    connect(m_worker, &ImageBatchWorker::finished, m_thread, &QThread::quit);
+    connect(m_worker, &ImageBatchWorker::canceled, m_thread, &QThread::quit);
 
     connect(m_worker, &ImageBatchWorker::finished, this, [this](){
         emit batchFinished();
-        cleanupThread();
     });
-
     connect(m_worker, &ImageBatchWorker::canceled, this, [this](){
         emit batchCanceled();
-        cleanupThread();
     });
 
+    // TaskManager在QThread退出后再清理状态
     connect(m_thread, &QThread::finished, m_worker, &QObject::deleteLater);
+    connect(m_thread, &QThread::finished, this, [this](){
+        m_running = false;
+        m_thread->deleteLater();
+        m_thread = nullptr;
+        m_worker = nullptr;
+    });
+    // 分离TaskManager和QThread线程退出过程
 
     emit batchStarted(inputPaths.size());
     m_thread->start();
@@ -156,7 +157,7 @@ void TaskManager::cleanupThread(){
     if(m_thread){
         m_thread->quit();
         m_thread->wait();
-        m_thread->deleteLater();
+        // m_thread->deleteLater();
     }
 
     m_thread = nullptr;

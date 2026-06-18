@@ -1,4 +1,5 @@
 #pragma once
+#include "../effect/EffectPass.h"
 
 #include <QObject>
 #include <QString>
@@ -11,13 +12,14 @@ class ImageBatchWorker : public QObject{
     Q_OBJECT
 
 public:
-    ImageBatchWorker(QStringList inputPaths, QString outputDir)
+    ImageBatchWorker(QStringList inputPaths, QString outputDir, EffectType effectType)
     : m_inputPaths(std::move(inputPaths))
-    , m_outputDir(std::move(outputDir)){}
+    , m_outputDir(std::move(outputDir))
+    , m_effectType(effectType){}
 
 public slots:
     void process();
-    void cancel();
+    // void cancel();
 
 signals: 
     void taskStarted(int row, const QString &inputPath);
@@ -34,8 +36,8 @@ signals:
 private:
     QStringList m_inputPaths;
     QString m_outputDir;
-    bool m_cancelRequested = false;
-
+    EffectType m_effectType;
+    // bool m_cancelRequested = false;
 };
 
 // 任务管理器
@@ -49,7 +51,7 @@ public:
     bool isRunning() const;
 
 public slots:
-    void startBatch(const QStringList &inputPaths, const QString &outputDir);
+    void startBatch(const QStringList &inputPaths, const QString &outputDir, EffectType effectType);
     void cancel();
 
 signals:
@@ -74,5 +76,4 @@ private:
     QThread *m_thread = nullptr;
     ImageBatchWorker *m_worker = nullptr;
     bool m_running = false;
-
 };

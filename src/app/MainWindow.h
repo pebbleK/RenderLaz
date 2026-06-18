@@ -2,8 +2,10 @@
 #include "../logger/Logger.h"
 #include "../resource/ResourceManager.h"
 #include "../task/TaskManager.h"
+#include "../effect/EffectPass.h"
 
 #include <QMainWindow>
+#include <QString>
 
 class QLabel;
 class QListWidget;
@@ -13,6 +15,19 @@ class QResizeEvent;
 class QProgressBar;
 class QTableWidget;
 class QLineEdit;
+class QComboBox;
+
+namespace structPlace {
+    enum class Status {
+    Pending,
+    Running,
+    Finished,
+    Failed,
+    Canceled
+    };
+
+    QString statusToString(Status status);
+}
 
 class MainWindow : public QMainWindow{
     Q_OBJECT
@@ -35,6 +50,7 @@ private:
     void showSelectedResource(QListWidgetItem *item);
     void updatePreviewPixmap();
     void appendLog(const QString &message);
+    void refreshEffectPreview();
 
     // 线程处理
     void startBatchProcess();
@@ -51,6 +67,8 @@ private:
 
     QStringList importedImagePaths() const;
 
+    EffectType selectedEffectType() const;
+
 private:
     QListWidget *m_resourceList = nullptr;
     QLabel *m_previewLabel = nullptr;
@@ -61,11 +79,14 @@ private:
 
     QString m_currentImagePath;
     QImage m_currentImage;
+    QImage m_previewImage;
 
     QLineEdit *m_outputPathEdit = nullptr;
 
     QProgressBar *m_taskProgressBar = nullptr;
-    QTableWidget *m_taskTable = nullptr;
+    QTableWidget *m_taskTable = nullptr; // 状态表格栏
 
     TaskManager m_taskManager;
+
+    QComboBox *m_effectCombo = nullptr; // 下拉框控件
 };

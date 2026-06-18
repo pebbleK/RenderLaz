@@ -148,8 +148,12 @@ void MainWindow::setupCentralWidget(){
     auto *parameterWidget = new QWidget(bottomTabs);
     auto *parameterLayout = new QFormLayout(parameterWidget);
 
-    auto *effectCombo = new QComboBox(parameterWidget);
-    effectCombo->addItems({"Color Adjust", "Gaussian Blur", "Bloom", "Edge Detect", "Glitch"});
+    m_effectCombo = new QComboBox(parameterWidget);
+    m_effectCombo->addItems({{"Null", "Grayscale", "Invert", "Sepia"}});
+    connect(m_effectCombo, 
+        &QComboBox::currentTextChanged, this, [this](const QString &){
+            refreshEffectPreview();
+    });
 
     auto *intensitySpin = new QDoubleSpinBox(parameterWidget);
     intensitySpin->setRange(0.0, 10.0);
@@ -165,7 +169,7 @@ void MainWindow::setupCentralWidget(){
     m_taskProgressBar->setRange(0, 100);
     m_taskProgressBar->setValue(0);
 
-    parameterLayout->addRow("当前特效", effectCombo);
+    parameterLayout->addRow("当前特效", m_effectCombo);
     parameterLayout->addRow("强度", intensitySpin);
     parameterLayout->addRow("半径", radiusSlider);
     parameterLayout->addRow("输出目录", m_outputPathEdit);
@@ -262,7 +266,7 @@ void MainWindow::showSelectedResource(QListWidgetItem *item){
     m_currentImagePath = filePath;
     m_currentImage = image;
 
-    updatePreviewPixmap();
+    refreshEffectPreview();
 
     // QFileInfo这个类可以获取文件的各类属性，传入文件路径
     const QFileInfo fileInfo(filePath);
@@ -270,8 +274,33 @@ void MainWindow::showSelectedResource(QListWidgetItem *item){
     statusBar()->showMessage("当前图片：" + fileInfo.fileName());
 }
 
+void MainWindow::refreshEffectPreview(){
+    if(!m_previewLabel){
+        return;
+    }
+
+    if(m_currentImage.isNull()){
+        m_previewImage = QImage();
+        m_previewLabel->clear();
+        m_previewLabel->setText("OpenGL Preview\n请先导入图片");
+        return;
+    }
+
+    const EffectPass effectPass(selectedEffectType());
+    const QImage result = effectPass.apply(m_currentImage); // 特效应用到读取图片
+
+    if(result.isNull()){
+        m_previewImage = m_currentImage;
+        m_logger.error("预览特效应用失败，已显示原图");
+    }else{
+        m_previewImage = result;
+    }
+
+    updatePreviewPixmap();
+}
+
 void MainWindow::updatePreviewPixmap(){
-    if(!m_previewLabel || m_currentImage.isNull()){
+    if(!m_previewLabel || m_previewImage.isNull()){
         return;
     }
 
@@ -280,7 +309,7 @@ void MainWindow::updatePreviewPixmap(){
         return;
     }
 
-    const QPixmap pixmap = QPixmap::fromImage(m_currentImage).scaled(
+    const QPixmap pixmap = QPixmap::fromImage(m_previewImage).scaled(
         targetSize, Qt::KeepAspectRatio, Qt::SmoothTransformation
     );
 
@@ -290,7 +319,7 @@ void MainWindow::updatePreviewPixmap(){
 }
 
 void MainWindow::resizeEvent(QResizeEvent *event){
-    // 更新
+    // 拉伸窗口比例后
     QMainWindow::resizeEvent(event);
     updatePreviewPixmap();
 }
@@ -312,6 +341,51 @@ QStringList MainWindow::importedImagePaths() const{
     return paths;
 }
 
+EffectType MainWindow::selectedEffectType() const{
+    if(!m_effectCombo){
+        return EffectType::Null;
+    }
+
+    // 从下拉combo中获取特效名字
+    const QString effectName = m_effectCombo->currentText();
+
+    if(effectName == "Null"){
+        return EffectType::Null;
+    }
+
+    if(effectName == "Grayscale"){
+        return EffectType::Grayscale;
+    }
+
+    if(effectName == "Invert"){
+        return EffectType::Invert;
+    }
+
+    if(effectName == "Sepia"){
+        return EffectType::Sepia;
+    }
+
+    return EffectType::Null;
+}
+
+QString structPlace::statusToString(Status status)
+{
+    switch (status) {
+    case Status::Pending:
+        return "等待中";
+    case Status::Running:
+        return "处理中";
+    case Status::Finished:
+        return "已完成";
+    case Status::Failed:
+        return "失败";
+    case Status::Canceled:
+        return "已取消";
+    }
+
+    return "未知";
+}
+
 void MainWindow::startBatchProcess(){
     if(m_taskManager.isRunning()){
         m_logger.warning("任务正在处理...");
@@ -325,6 +399,13 @@ void MainWindow::startBatchProcess(){
     }
 
     const QString outputDir = m_outputPathEdit->text().trimmed(); // .trimmed()两头空格去除
+    if(outputDir.isEmpty()){
+        QMessageBox::information(this, "批处理", "请填写输出目录");
+        return;
+    }
+
+    const EffectType effectType = selectedEffectType();
+    const EffectPass effectPass(effectType);
 
     if(m_taskTable){
         m_taskTable->setRowCount(inputPaths.size());
@@ -332,9 +413,10 @@ void MainWindow::startBatchProcess(){
         for(int row = 0; row < inputPaths.size(); ++row){
             const QFileInfo fileInfo(inputPaths.at(row));
 
+            // 名字栏，特效栏，状态栏，进度栏，输出路径
             m_taskTable->setItem(row, 0, new QTableWidgetItem(fileInfo.fileName()));
-            m_taskTable->setItem(row, 1, new QTableWidgetItem("GrayScale"));
-            m_taskTable->setItem(row, 2, new QTableWidgetItem("等待中"));
+            m_taskTable->setItem(row, 1, new QTableWidgetItem(effectPass.name()));
+            m_taskTable->setItem(row, 2, new QTableWidgetItem(statusToString(structPlace::Status::Pending)));
             m_taskTable->setItem(row, 3, new QTableWidgetItem("0%"));
             m_taskTable->setItem(row, 4, new QTableWidgetItem(""));
         }
@@ -348,7 +430,7 @@ void MainWindow::startBatchProcess(){
     statusBar()->showMessage("批处理运行中");
 
     // 转入任务管理中运行
-    m_taskManager.startBatch(inputPaths, outputDir);
+    m_taskManager.startBatch(inputPaths, outputDir, effectType);
 }
 
 void MainWindow::cancelBatchProcess(){
@@ -367,7 +449,8 @@ void MainWindow::handleBatchStarted(int totalCount){
 
 void MainWindow::handleTaskStarted(int row, const QString &inputPath){
     if(m_taskTable && row >= 0 && row < m_taskTable->rowCount()){
-        m_taskTable->setItem(row, 2, new QTableWidgetItem("处理中"));
+        m_taskTable->setItem(row, 2, 
+            new QTableWidgetItem(statusToString(structPlace::Status::Running)));
     }
 
     const QFileInfo fileInfo(inputPath);
@@ -376,7 +459,8 @@ void MainWindow::handleTaskStarted(int row, const QString &inputPath){
 
 void MainWindow::handleTaskProgressChanged(int row, int progress){
     if(m_taskTable && row >= 0 && row < m_taskTable->rowCount()){
-        m_taskTable->setItem(row, 3, new QTableWidgetItem(QString("%1%").arg(progress)));
+            m_taskTable->setItem(row, 3, 
+        new QTableWidgetItem(QString("%1%").arg(progress)));
     }
 
     /*
@@ -393,7 +477,8 @@ void MainWindow::handleTaskProgressChanged(int row, int progress){
 
 void MainWindow::handleTaskFinished(int row, const QString &outputPath){
     if(m_taskTable && row >=0 && row < m_taskTable->rowCount()){
-        m_taskTable->setItem(row, 2, new QTableWidgetItem("完成"));
+        m_taskTable->setItem(row, 2, 
+            new QTableWidgetItem(statusToString(structPlace::Status::Finished)));
         m_taskTable->setItem(row, 3, new QTableWidgetItem("100%"));
         m_taskTable->setItem(row, 4, new QTableWidgetItem(outputPath));
     }
@@ -403,7 +488,8 @@ void MainWindow::handleTaskFinished(int row, const QString &outputPath){
 
 void MainWindow::handleTaskFailed(int row, const QString &errorMessage){
     if(m_taskTable && row >= 0 && row < m_taskTable->rowCount()){
-        m_taskTable->setItem(row, 2, new QTableWidgetItem("失败"));
+        m_taskTable->setItem(row, 2, 
+            new QTableWidgetItem(statusToString(structPlace::Status::Failed)));
     }
 
     m_logger.error(errorMessage);
@@ -419,6 +505,20 @@ void MainWindow::handleBatchFinished(){
 }
 
 void MainWindow::handleBatchCanceled(){
+    if(m_taskTable){
+        for(int row = 0; row < m_taskTable->rowCount(); ++row){
+            QTableWidgetItem *statusItem = m_taskTable->item(row, 2);
+            const QString status = statusItem ? statusItem->text() : QString();
+
+            // “等待中“和“运行中“改为“已取消“，完成和失败的不改动
+            if(status != statusToString(structPlace::Status::Finished) 
+            && status != statusToString(structPlace::Status::Failed)){
+                m_taskTable->setItem(row, 2, 
+                    new QTableWidgetItem(statusToString(structPlace::Status::Canceled)));
+            }
+        }
+    }
+
     m_logger.warning("批处理任务已取消");
     statusBar()->showMessage("批处理取消");
 }
