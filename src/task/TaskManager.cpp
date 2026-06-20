@@ -1,4 +1,5 @@
 #include "TaskManager.h"
+#include "../effect/EffectChain.h"
 
 #include <QDir>
 #include <QFileInfo>
@@ -15,7 +16,10 @@ void ImageBatchWorker::process(){
         return;
     }
 
-    const EffectPass effectPass(m_effectType);
+    EffectChain effectChain;
+    for(EffectType type : m_effectTypes){
+        effectChain.addPass(type);
+    }
 
     for(int row = 0; row < m_inputPaths.size(); ++row){
         if(QThread::currentThread()->isInterruptionRequested()){
@@ -35,7 +39,7 @@ void ImageBatchWorker::process(){
 
         emit taskProgressChanged(row, 30);
 
-        QImage result = effectPass.apply(image, 
+        QImage result = effectChain.apply(image, 
             [](){
             return QThread::currentThread()->isInterruptionRequested();},
             [this, row](int effectProgress){
@@ -59,7 +63,7 @@ void ImageBatchWorker::process(){
         const QFileInfo inputInfo(inputPath);
         const QString baseName = inputInfo.completeBaseName();
         const QString outputPath = outputDir.filePath(
-        baseName + "_" + effectPass.effectTypeSuffix() + ".png");
+        baseName + "_output" + ".png");
         if(!result.save(outputPath)){
             emit taskFailed(row, "保存失败：" + outputPath);
             continue;
@@ -94,7 +98,7 @@ bool TaskManager::isRunning() const{
 
 void TaskManager::startBatch(const QStringList &inputPaths, 
     const QString &outputDir, 
-    EffectType effectType){
+    QList<EffectType> effectTypes){
 
     if(m_running || inputPaths.isEmpty()){
         return;
@@ -103,7 +107,7 @@ void TaskManager::startBatch(const QStringList &inputPaths,
     m_running = true;
 
     m_thread = new QThread(this);
-    m_worker = new ImageBatchWorker(inputPaths, outputDir, effectType);
+    m_worker = new ImageBatchWorker(inputPaths, outputDir, effectTypes);
 
     m_worker->moveToThread(m_thread);
 

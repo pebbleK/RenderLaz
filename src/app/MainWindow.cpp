@@ -124,11 +124,17 @@ void MainWindow::setupCentralWidget(){
 
     auto *effectGroup = new QGroupBox("特效链", leftWidget);
     auto *effectLayout = new QVBoxLayout(effectGroup);
-    auto *effectList = new QListWidget(effectGroup);
-    effectList->addItems({"Pass 01 - Color Adjust", "Pass 02 - Gaussian Blur", "Pass 03 - Bloom"});
-    auto *addPassButton = new QPushButton("添加Pass", effectGroup);
-    effectLayout->addWidget(effectList);
-    effectLayout->addWidget(addPassButton);
+    m_effectList = new QListWidget(effectGroup);
+    m_addPassButton = new QPushButton("添加Pass", effectGroup);
+    m_removePassButton = new QPushButton("删除Pass", effectGroup);
+    connect(m_addPassButton, &QPushButton::clicked, this, 
+    &MainWindow::addSelectedEffectPass);
+    connect(m_removePassButton, &QPushButton::clicked, this, 
+    &MainWindow::removeSelectedEffectPass);
+
+    effectLayout->addWidget(m_effectList);
+    effectLayout->addWidget(m_addPassButton);
+    effectLayout->addWidget(m_removePassButton);
 
     leftLayout->addWidget(projectGroup);
     leftLayout->addWidget(effectGroup);
@@ -286,8 +292,13 @@ void MainWindow::refreshEffectPreview(){
         return;
     }
 
-    const EffectPass effectPass(selectedEffectType());
-    const QImage result = effectPass.apply(m_currentImage); // 特效应用到读取图片
+    if(m_effectChain.isEmpty()){
+        m_previewImage = m_currentImage;
+        updatePreviewPixmap();
+        return;
+    }
+
+    const QImage result = m_effectChain.apply(m_currentImage); // 特效应用到读取图片
 
     if(result.isNull()){
         m_previewImage = m_currentImage;
@@ -346,7 +357,7 @@ EffectType MainWindow::selectedEffectType() const{
         return EffectType::Null;
     }
 
-    // 从下拉combo中获取特效名字
+    // 从下拉combo中获取特效类型
     const QString effectName = m_effectCombo->currentText();
 
     if(effectName == "Null"){
@@ -366,6 +377,28 @@ EffectType MainWindow::selectedEffectType() const{
     }
 
     return EffectType::Null;
+}
+
+void MainWindow::addSelectedEffectPass(){
+    const EffectType type = selectedEffectType();
+    m_effectChain.addPass(type);
+
+    const auto pass = createEffectPass(type);
+    m_effectList->addItem(pass->name());
+
+    refreshEffectPreview();
+}
+
+void MainWindow::removeSelectedEffectPass(){
+    const int row = m_effectList->currentRow();
+    if(row < 0){
+        return;
+    }
+
+    m_effectChain.removePass(row);
+    delete m_effectList->takeItem(row);
+
+    refreshEffectPreview();
 }
 
 QString structPlace::statusToString(Status status)
@@ -404,8 +437,9 @@ void MainWindow::startBatchProcess(){
         return;
     }
 
-    const EffectType effectType = selectedEffectType();
-    const EffectPass effectPass(effectType);
+    const QList<EffectType> effectTypes = m_effectChain.effectTypes();
+    const QString effectName = m_effectChain.isEmpty() ? QString("Null")
+    : m_effectChain.passNames().join("->"); // join()把列表里所有字符串串成一整条，中间用“separator“分隔。
 
     if(m_taskTable){
         m_taskTable->setRowCount(inputPaths.size());
@@ -415,7 +449,7 @@ void MainWindow::startBatchProcess(){
 
             // 名字栏，特效栏，状态栏，进度栏，输出路径
             m_taskTable->setItem(row, 0, new QTableWidgetItem(fileInfo.fileName()));
-            m_taskTable->setItem(row, 1, new QTableWidgetItem(effectPass.name()));
+            m_taskTable->setItem(row, 1, new QTableWidgetItem(effectName));
             m_taskTable->setItem(row, 2, new QTableWidgetItem(statusToString(structPlace::Status::Pending)));
             m_taskTable->setItem(row, 3, new QTableWidgetItem("0%"));
             m_taskTable->setItem(row, 4, new QTableWidgetItem(""));
@@ -430,7 +464,7 @@ void MainWindow::startBatchProcess(){
     statusBar()->showMessage("批处理运行中");
 
     // 转入任务管理中运行
-    m_taskManager.startBatch(inputPaths, outputDir, effectType);
+    m_taskManager.startBatch(inputPaths, outputDir, effectTypes);
 }
 
 void MainWindow::cancelBatchProcess(){

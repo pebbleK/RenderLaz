@@ -27,6 +27,10 @@ qt_add_executable(RenderLaz
 
     src/effect/EffectPass.h
     src/effect/EffectPass.cpp
+    src/effect/NormalEffect.h
+    src/effect/NormalEffect.cpp
+    src/effect/EffectChain.h
+    src/effect/EffectChain.cpp
 
 )
 

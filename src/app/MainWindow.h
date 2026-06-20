@@ -3,6 +3,7 @@
 #include "../resource/ResourceManager.h"
 #include "../task/TaskManager.h"
 #include "../effect/EffectPass.h"
+#include "../effect/EffectChain.h"
 
 #include <QMainWindow>
 #include <QString>
@@ -16,6 +17,7 @@ class QProgressBar;
 class QTableWidget;
 class QLineEdit;
 class QComboBox;
+class QPushButton;
 
 namespace structPlace {
     enum class Status {
@@ -66,8 +68,9 @@ private:
     void handleBatchCanceled();
 
     QStringList importedImagePaths() const;
-
     EffectType selectedEffectType() const;
+    void addSelectedEffectPass();
+    void removeSelectedEffectPass();
 
 private:
     QListWidget *m_resourceList = nullptr;
@@ -88,5 +91,10 @@ private:
 
     TaskManager m_taskManager;
 
+    // 特效控件
     QComboBox *m_effectCombo = nullptr; // 下拉框控件
+    QListWidget *m_effectList = nullptr;
+    QPushButton *m_addPassButton = nullptr;
+    QPushButton *m_removePassButton = nullptr;
+    EffectChain m_effectChain;
 };

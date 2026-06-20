@@ -4,6 +4,7 @@
 #include <QObject>
 #include <QString>
 #include <QStringList>
+#include <QList>
 
 class QThread;
 
@@ -12,10 +13,10 @@ class ImageBatchWorker : public QObject{
     Q_OBJECT
 
 public:
-    ImageBatchWorker(QStringList inputPaths, QString outputDir, EffectType effectType)
+    ImageBatchWorker(QStringList inputPaths, QString outputDir, QList<EffectType> effectTypes)
     : m_inputPaths(std::move(inputPaths))
     , m_outputDir(std::move(outputDir))
-    , m_effectType(effectType){}
+    , m_effectTypes(effectTypes){}
 
 public slots:
     void process();
@@ -36,7 +37,7 @@ signals:
 private:
     QStringList m_inputPaths;
     QString m_outputDir;
-    EffectType m_effectType;
+    QList<EffectType> m_effectTypes;
     // bool m_cancelRequested = false;
 };
 
@@ -51,7 +52,7 @@ public:
     bool isRunning() const;
 
 public slots:
-    void startBatch(const QStringList &inputPaths, const QString &outputDir, EffectType effectType);
+    void startBatch(const QStringList &inputPaths, const QString &outputDir, QList<EffectType> effectTypes);
     void cancel();
 
 signals:
