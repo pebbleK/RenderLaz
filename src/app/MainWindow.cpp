@@ -56,8 +56,11 @@ void MainWindow::setupMenuBar(){
     QMenu *fileMenu = menuBar()->addMenu("文件");
     QAction *importAction = fileMenu->addAction("导入图片/序列帧");
     connect(importAction, &QAction::triggered, this, &MainWindow::importImages);
-    fileMenu->addAction("打开工程");
-    fileMenu->addAction("保存工程");
+    QAction *openProjectAction = fileMenu->addAction("打开工程");
+    connect(openProjectAction, &QAction::triggered, this, &MainWindow::openProject);
+    QAction *saveProjectAction = fileMenu->addAction("保存工程");
+    connect(saveProjectAction, &QAction::triggered, this, &MainWindow::saveProject);
+
     fileMenu->addSeparator();
     fileMenu->addAction("导出结果");
     fileMenu->addSeparator();
@@ -92,7 +95,9 @@ void MainWindow::setupToolBar(){
     QAction *importAction = toolBar->addAction("导入资源");
     connect(importAction, &QAction::triggered, this, &MainWindow::importImages);
 
-    toolBar->addAction("保存工程");
+    QAction *saveProjectAction = toolBar->addAction("保存工程");
+    connect(saveProjectAction, &QAction::triggered, this, &MainWindow::saveProject);
+
     toolBar->addSeparator();
     toolBar->addAction("编译Shader");
     toolBar->addAction("开始预览");
@@ -155,7 +160,7 @@ void MainWindow::setupCentralWidget(){
     auto *parameterLayout = new QFormLayout(parameterWidget);
 
     m_effectCombo = new QComboBox(parameterWidget);
-    m_effectCombo->addItems({{"Null", "Grayscale", "Invert", "Sepia"}});
+    m_effectCombo->addItems({{"Null", "Grayscale", "Invert", "Sepia", "Blur"}});
     connect(m_effectCombo, 
         &QComboBox::currentTextChanged, this, [this](const QString &){
             refreshEffectPreview();
@@ -232,7 +237,7 @@ void MainWindow::importImages(){
     }
 
     for(const ImageResource &resource : addedResources){
-        // 创建一个列表项，显示文件名并自动添加到QListWidget中
+        // 创建一个列表项，显示文件名并添加到QListWidget中
         auto *item = new QListWidgetItem(resource.fileName, m_resourceList);
         item->setData(Qt::UserRole, resource.filePath);
         item->setToolTip(resource.filePath); // 鼠标悬停时显示完整路径作为提示
@@ -247,7 +252,8 @@ void MainWindow::importImages(){
     statusBar()->showMessage(QString("已导入 %1 张照片").arg(m_resourceManager.resources().size()));
 
     if(m_currentImage.isNull() && m_resourceList->count() > 0){
-        m_resourceList->setCurrentRow(0);
+        m_resourceList->setCurrentRow(0); // 带有选中高亮效果
+
         // 流程提交给下一个函数，默认显示第一张图
         showSelectedResource(m_resourceList->item(0));
     }
@@ -374,6 +380,10 @@ EffectType MainWindow::selectedEffectType() const{
 
     if(effectName == "Sepia"){
         return EffectType::Sepia;
+    }
+
+    if(effectName == "Blur"){
+        return EffectType::Blur;
     }
 
     return EffectType::Null;
@@ -555,4 +565,128 @@ void MainWindow::handleBatchCanceled(){
 
     m_logger.warning("批处理任务已取消");
     statusBar()->showMessage("批处理取消");
+}
+
+void MainWindow::saveProject(){
+    // 弹窗选择保存位置和名字
+    const QString filePath = QFileDialog::getSaveFileName(
+        this, "保存工程", QString(), 
+        "RenderLaz Project(*.render)");
+
+    if(filePath.isEmpty()){
+        return;
+    }
+
+    QString errorMessage;
+    if(!ProjectConfig::saveToFile(filePath, currentProjectState(), &errorMessage)){
+        QMessageBox::warning(this, "保存工程", errorMessage);
+        m_logger.error(errorMessage);
+        return;
+    }
+
+    m_logger.info("工程已保存：" + filePath);
+    statusBar()->showMessage("工程已保存");
+}
+
+void MainWindow::openProject(){
+    // 弹窗选择读取位置和名字
+    const QString filePath = QFileDialog::getOpenFileName(
+    this, "打开工程", QString(),
+    "RenderLaz Project (*.renderlaz)");
+    
+    if(filePath.isEmpty()){
+        return;
+    }
+
+    ProjectState state;
+    QString errorMessage;
+
+    if(!ProjectConfig::loadFromFile(filePath, &state, &errorMessage)){
+        QMessageBox::warning(this, "打开工程", errorMessage);
+        m_logger.error(errorMessage);
+        return;
+    }
+
+    applyProjectState(state);
+
+    m_logger.info("工程已打开" + filePath);
+    statusBar()->showMessage("工程已打开");
+}
+
+ProjectState MainWindow::currentProjectState() const{
+    ProjectState state;
+    state.resourcePaths = importedImagePaths();
+    state.currentImagePath = m_currentImagePath;
+    state.effectTypes = m_effectChain.effectTypes();
+
+    if(m_outputPathEdit){
+        state.outputDir = m_outputPathEdit->text().trimmed();
+    }
+
+    return state;
+}
+
+void MainWindow::applyProjectState(const ProjectState &state){
+    m_resourceManager.clear();
+    m_resourceList->clear();
+
+    QStringList errorMessages;
+    const QList<ImageResource> addedResources = 
+        m_resourceManager.addImage(state.resourcePaths, &errorMessages);
+
+    for(const QString &errorMessage : errorMessages){
+        m_logger.warning(errorMessage);
+    }
+
+    for(const ImageResource &resource : addedResources){
+        auto item = new QListWidgetItem(resource.fileName, m_resourceList);
+        item->setData(Qt::UserRole, resource.filePath);
+        item->setToolTip(resource.filePath);
+    }
+
+    m_effectChain.clear();
+    for(const EffectType type: state.effectTypes){
+        m_effectChain.addPass(type);
+    }
+    refreshEffectList();
+
+    m_outputPathEdit->setText(state.outputDir.isEmpty() ? "./output" : state.outputDir);
+
+    m_currentImagePath.clear();
+    m_currentImage = QImage();
+    m_previewImage = QImage();
+
+    int currentRow = -1;
+    for(int row = 0; row < m_resourceList->count(); ++row){
+        QListWidgetItem *item = m_resourceList->item(row);
+        // 遍历找到工程保存的图片
+        if(item && item->data(Qt::UserRole).toString() == state.currentImagePath){
+            currentRow = row;
+            break;
+        }
+    }
+
+    if(currentRow == -1 && m_resourceList->count() > 0){
+        currentRow = 0;
+    }
+
+    if(currentRow >= 0){
+        m_resourceList->setCurrentRow(currentRow);
+        showSelectedResource(m_resourceList->item(currentRow));
+    }else{
+        refreshEffectPreview();
+    }
+}
+
+void MainWindow::refreshEffectList(){
+    if(!m_effectList){
+        return;
+    }
+
+    m_effectList->clear();
+
+    const QStringList names = m_effectChain.passNames();
+    for(const QString &name : names){
+        m_effectList->addItem(name);
+    }
 }

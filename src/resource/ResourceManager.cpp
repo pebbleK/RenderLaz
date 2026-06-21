@@ -39,6 +39,11 @@ QList<ImageResource> ResourceManager::addImage(const QStringList &filePaths, QSt
     return addedResources;
 }
 
+void ResourceManager::clear(){
+    m_resources.clear();
+    m_importedPaths.clear();
+}
+
 QImage ResourceManager::loadImage(const QString &filePath, QString *errorMessage) const{
     QImageReader reader(filePath);
     reader.setAutoTransform(true); // 它可以处理部分图片的 EXIF 方向信息，比如手机拍摄图片旋转问题。

@@ -7,7 +7,8 @@ enum class EffectType{
     Null,
     Grayscale,
     Invert,
-    Sepia
+    Sepia,
+    Blur
 };
 
 class EffectPass{

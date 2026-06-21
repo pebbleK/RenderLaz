@@ -6,7 +6,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_USE_RESPONSE_FILE_FOR_INCLUDES OFF)
 
-find_package(Qt6 REQUIRED COMPONENTS Widgets)
+find_package(Qt6 REQUIRED COMPONENTS Widgets OpenGL)
 
 qt_standard_project_setup()
 
@@ -32,6 +32,12 @@ qt_add_executable(RenderLaz
     src/effect/EffectChain.h
     src/effect/EffectChain.cpp
 
+    src/config/ProjectConfig.h
+    src/config/ProjectConfig.cpp
+
+    src/render/RenderEngine.h
+    src/render/RenderEngine.cpp
+
 )
 
-target_link_libraries(RenderLaz PRIVATE Qt6::Widgets)
+target_link_libraries(RenderLaz PRIVATE Qt6::Widgets Qt6::OpenGL)

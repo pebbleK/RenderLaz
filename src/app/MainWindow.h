@@ -4,6 +4,7 @@
 #include "../task/TaskManager.h"
 #include "../effect/EffectPass.h"
 #include "../effect/EffectChain.h"
+#include "../config/ProjectConfig.h"
 
 #include <QMainWindow>
 #include <QString>
@@ -67,10 +68,19 @@ private:
     void handleBatchFinished();
     void handleBatchCanceled();
 
+    // 特效处理
     QStringList importedImagePaths() const;
     EffectType selectedEffectType() const;
     void addSelectedEffectPass();
     void removeSelectedEffectPass();
+
+    // 保存配置/工程
+    void saveProject();
+    void openProject();
+
+    ProjectState currentProjectState() const;
+    void applyProjectState(const ProjectState &state);
+    void refreshEffectList();
 
 private:
     QListWidget *m_resourceList = nullptr;

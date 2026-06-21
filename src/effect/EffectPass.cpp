@@ -1,5 +1,6 @@
 #include "EffectPass.h"
 #include "NormalEffect.h"
+#include "RenderEffect.h"
 
 #include <QColor>
 
@@ -33,6 +34,8 @@ std::unique_ptr<EffectPass> createEffectPass(EffectType type){
         return std::make_unique<InvertEffect>();
     case EffectType::Sepia:
         return std::make_unique<SepiaEffect>();
+    case EffectType::Blur:
+        return std::make_unique<BlurEffect>();
     }
     
     return std::make_unique<NullEffect>();
