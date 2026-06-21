@@ -10,8 +10,7 @@ bool EffectPass::isCanceled(const std::function<bool()> &shouldCancel){
     
 void EffectPass::reportProgress(
     const std::function<void(int)> &onProgress,
-    int row,
-    int totalRows){
+    int row, int totalRows){
 
     if(!onProgress || totalRows <= 0){
         return;

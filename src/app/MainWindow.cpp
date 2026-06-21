@@ -304,7 +304,8 @@ void MainWindow::refreshEffectPreview(){
         return;
     }
 
-    const QImage result = m_effectChain.apply(m_currentImage); // 特效应用到读取图片
+    // 特效应用到读取图片，由于是预览所以不需要传入shouldCancel, onProgress
+    const QImage result = m_effectChain.apply(m_currentImage);
 
     if(result.isNull()){
         m_previewImage = m_currentImage;
@@ -503,7 +504,7 @@ void MainWindow::handleTaskStarted(int row, const QString &inputPath){
 
 void MainWindow::handleTaskProgressChanged(int row, int progress){
     if(m_taskTable && row >= 0 && row < m_taskTable->rowCount()){
-            m_taskTable->setItem(row, 3, 
+        m_taskTable->setItem(row, 3, 
         new QTableWidgetItem(QString("%1%").arg(progress)));
     }
 
