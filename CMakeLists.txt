@@ -6,7 +6,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_USE_RESPONSE_FILE_FOR_INCLUDES OFF)
 
-find_package(Qt6 REQUIRED COMPONENTS Widgets OpenGL)
+find_package(Qt6 REQUIRED COMPONENTS Widgets ShaderTools GuiPrivate)
 
 qt_standard_project_setup()
 
@@ -27,10 +27,12 @@ qt_add_executable(RenderLaz
 
     src/effect/EffectPass.h
     src/effect/EffectPass.cpp
-    src/effect/NormalEffect.h
-    src/effect/NormalEffect.cpp
     src/effect/EffectChain.h
     src/effect/EffectChain.cpp
+    src/effect/NormalEffect.h
+    src/effect/NormalEffect.cpp
+    src/effect/RenderEffect.h
+    src/effect/RenderEffect.cpp
 
     src/config/ProjectConfig.h
     src/config/ProjectConfig.cpp
@@ -40,4 +42,17 @@ qt_add_executable(RenderLaz
 
 )
 
-target_link_libraries(RenderLaz PRIVATE Qt6::Widgets Qt6::OpenGL)
+target_link_libraries(RenderLaz PRIVATE
+    Qt6::Widgets
+    Qt6::GuiPrivate
+)
+
+qt_add_shaders(RenderLaz "renderlaz_shaders"
+    PRECOMPILE
+    OPTIMIZED
+    PREFIX "/shaders"
+    BASE "src/render/shaders"
+    FILES
+        src/render/shaders/fullscreen.vert
+        src/render/shaders/blur.frag
+)
