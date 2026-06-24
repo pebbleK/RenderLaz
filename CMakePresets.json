@@ -2,10 +2,34 @@
     "version": 6,
     "configurePresets": [
         {
+            "name": "windows-mingw",
+            "displayName": "Windows MinGW",
+            "generator": "MinGW Makefiles",
+            "binaryDir": "${sourceDir}/build-mingw",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Windows"
+            },
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "CMAKE_C_COMPILER": "D:/Qt/Tools/mingw1310_64/bin/gcc.exe",
+                "CMAKE_CXX_COMPILER": "D:/Qt/Tools/mingw1310_64/bin/g++.exe",
+                "CMAKE_MAKE_PROGRAM": "D:/Qt/Tools/mingw1310_64/bin/mingw32-make.exe",
+                "CMAKE_PREFIX_PATH": "D:/Qt/6.10.1/mingw_64",
+                "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+            }
+        },
+        {
             "name": "macos-ninja",
             "displayName": "macOS Ninja",
             "generator": "Ninja",
             "binaryDir": "${sourceDir}/build-macos",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Darwin"
+            },
             "cacheVariables": {
                 "CMAKE_PREFIX_PATH": "/opt/homebrew",
                 "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
@@ -13,6 +37,11 @@
         }
     ],
     "buildPresets": [
+        {
+            "name": "windows-mingw",
+            "displayName": "Windows MinGW",
+            "configurePreset": "windows-mingw"
+        },
         {
             "name": "macos-ninja",
             "displayName": "macOS Ninja",

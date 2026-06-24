@@ -48,8 +48,6 @@ target_link_libraries(RenderLaz PRIVATE
 )
 
 qt_add_shaders(RenderLaz "renderlaz_shaders"
-    PRECOMPILE
-    OPTIMIZED
     PREFIX "/shaders"
     BASE "src/render/shaders"
     FILES

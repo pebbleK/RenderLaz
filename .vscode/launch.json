@@ -5,13 +5,19 @@
             "name": "Launch RenderLaz",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/build-macos/RenderLaz",
+            "program": "${workspaceFolder}/build-mingw/RenderLaz.exe",
             "args": [],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
-            "environment": [],
+            "environment": [
+                {
+                    "name": "PATH",
+                    "value": "D:/Qt/6.10.1/mingw_64/bin;D:/Qt/Tools/mingw1310_64/bin;${env:PATH}"
+                }
+            ],
             "externalConsole": false,
-            "MIMode": "lldb"
+            "MIMode": "gdb",
+            "miDebuggerPath": "D:/Qt/Tools/mingw1310_64/bin/gdb.exe"
         }
     ]
 }

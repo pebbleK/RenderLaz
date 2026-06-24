@@ -8,6 +8,7 @@
 #include <QThread>
 #include <QVector2D>
 #include <QColor>
+#include <QOffscreenSurface>
 
 namespace{
 
@@ -42,6 +43,11 @@ bool RenderEngine::initialize(QString *errorMessage){
 #if defined(Q_OS_MACOS)
     QRhiMetalInitParams params;
     m_rhi.reset(QRhi::create(QRhi::Metal, &params));
+#elif defined(Q_OS_WIN)
+    QRhiGles2InitParams params;
+    m_fallbackSurface = QRhiGles2InitParams::newFallbackSurface();
+    params.fallbackSurface = m_fallbackSurface;
+    m_rhi.reset(QRhi::create(QRhi::OpenGLES2, &params));
 #else
     QRhiNullInitParams params;
     m_rhi.reset(QRhi::create(QRhi::Null, &params));
@@ -505,6 +511,9 @@ void RenderEngine::releaseResources(){
     m_blurShader = nullptr;
 
     m_rhi.reset();
+
+    delete m_fallbackSurface;
+    m_fallbackSurface = nullptr;
 
     m_initialized = false;
     m_thread = nullptr;

@@ -1,6 +1,6 @@
 {
     "cmake.useCMakePresets": "always",
-    "cmake.configurePreset": "macos-ninja",
-    "cmake.buildPreset": "macos-ninja",
+    "cmake.configurePreset": "windows-mingw",
+    "cmake.buildPreset": "windows-mingw",
     "cmake.copyCompileCommands": "${workspaceFolder}/compile_commands.json"
 }

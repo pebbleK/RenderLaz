@@ -7,7 +7,7 @@
             "command": "cmake",
             "args": [
                 "--preset",
-                "macos-ninja"
+                "windows-mingw"
             ],
             "options": {
                 "cwd": "${workspaceFolder}"
@@ -21,7 +21,7 @@
             "args": [
                 "--build",
                 "--preset",
-                "macos-ninja"
+                "windows-mingw"
             ],
             "options": {
                 "cwd": "${workspaceFolder}"

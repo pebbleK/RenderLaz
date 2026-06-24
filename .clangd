@@ -1,2 +1,2 @@
 CompileFlags:
-  CompilationDatabase: build-macos
+  CompilationDatabase: build-mingw

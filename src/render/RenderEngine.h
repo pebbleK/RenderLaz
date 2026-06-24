@@ -15,6 +15,7 @@ class QRhiCommandBuffer;
 class QRhiRenderPassDescriptor;
 class QRhiTexture;
 class QRhiTextureRenderTarget;
+class QOffscreenSurface;
 
 class RenderEngine{
 public:
@@ -54,4 +55,6 @@ private:
 
     QRhiBuffer *m_vertexBuffer = nullptr;
     QRhiSampler * m_sampler = nullptr;
+
+    QOffscreenSurface *m_fallbackSurface = nullptr;
 };
