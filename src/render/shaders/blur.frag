@@ -12,7 +12,7 @@ layout(std140, binding = 0) uniform BlurParameter{
 
 layout(binding = 1) uniform sampler2D uTexture;
 
-void main{
+void main(){
     vec2 offset = uDirection * uTexelSize * uRadius;
 
     vec4 color = vec4(0.0);

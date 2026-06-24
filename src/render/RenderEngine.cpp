@@ -74,7 +74,7 @@ bool RenderEngine::initialize(QString *errorMessage){
 
     m_sampler = m_rhi->newSampler(QRhiSampler::Linear, QRhiSampler::Linear, QRhiSampler::None, QRhiSampler::ClampToEdge, QRhiSampler::ClampToEdge);
     if(!m_sampler->create()){
-        setError(errorMessage, "无法创建 RHI samper");
+        setError(errorMessage, "无法创建 RHI sampler");
         return false;
     }
 
@@ -146,7 +146,7 @@ QRhiGraphicsPipeline *RenderEngine::createBlurPipeline(
         QRhiVertexInputAttribute(0, 0, 
             QRhiVertexInputAttribute::Float2, 0),
 
-        QRhiVertexInputAttribute(0, 0, 
+        QRhiVertexInputAttribute(0, 1, 
             QRhiVertexInputAttribute::Float2, 2 * sizeof(float))
     });
 
@@ -178,6 +178,7 @@ bool RenderEngine::renderPass(QRhiCommandBuffer *commandBuffer,
     }
 
     commandBuffer->beginPass(target, QColor(0, 0, 0, 0), QRhiDepthStencilClearValue(1.0f, 0));
+    commandBuffer->setGraphicsPipeline(pipeline);
     commandBuffer->setViewport(QRhiViewport(
         0.0f, 
         0.0f, 
@@ -202,10 +203,8 @@ bool RenderEngine::renderPass(QRhiCommandBuffer *commandBuffer,
     QRhiGraphicsPipeline -> 画法
     QRhiCommandBuffer -> rendering order
 */
-QImage RenderEngine::renderBlur(
-    const QImage &image,
-    float radius,
-    QString *errorMessage){
+QImage RenderEngine::renderBlur(const QImage &image,
+    float radius, QString *errorMessage){
 
     if(image.isNull()){
         setError(errorMessage, "输入图片为空");
@@ -414,7 +413,7 @@ QImage RenderEngine::renderBlur(
         return QImage();
     }
 
-    // cpu端上传buffer
+    // cpu端上传数据
     QRhiResourceUpdateBatch *updates = m_rhi->nextResourceUpdateBatch();
     updates->uploadTexture(sourceTexture, sourceImage);
     updates->uploadStaticBuffer(
@@ -430,6 +429,7 @@ QImage RenderEngine::renderBlur(
 
     commandBuffer->resourceUpdate(updates);
 
+    // PASS 1
     if(!renderPass(
         commandBuffer,
         horizontalTarget,
@@ -442,6 +442,7 @@ QImage RenderEngine::renderBlur(
         return QImage();
     }
 
+    // PASS 2
     if(!renderPass(
         commandBuffer,
         resultTarget,

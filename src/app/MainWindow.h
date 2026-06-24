@@ -19,6 +19,9 @@ class QTableWidget;
 class QLineEdit;
 class QComboBox;
 class QPushButton;
+class QDoubleSpinBox;
+class QSlider;
+class QFormLayout;
 
 namespace structPlace {
     enum class Status {
@@ -73,6 +76,7 @@ private:
     EffectType selectedEffectType() const;
     void addSelectedEffectPass();
     void removeSelectedEffectPass();
+    void updateEffectParameterPanel();
 
     // 保存配置/工程
     void saveProject();
@@ -103,8 +107,11 @@ private:
 
     // 特效控件
     QComboBox *m_effectCombo = nullptr; // 下拉框控件
+    QDoubleSpinBox *m_intensitySpin = nullptr;
+    QSlider *m_radiusSlider = nullptr;
     QListWidget *m_effectList = nullptr;
     QPushButton *m_addPassButton = nullptr;
     QPushButton *m_removePassButton = nullptr;
+    QFormLayout *m_parameterLayout = nullptr;
     EffectChain m_effectChain;
 };

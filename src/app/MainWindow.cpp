@@ -54,7 +54,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent){
 
 void MainWindow::setupMenuBar(){
     QMenu *fileMenu = menuBar()->addMenu("文件");
-    QAction *importAction = fileMenu->addAction("导入图片/序列帧");
+    QAction *importAction = fileMenu->addAction("导入图片");
     connect(importAction, &QAction::triggered, this, &MainWindow::importImages);
     QAction *openProjectAction = fileMenu->addAction("打开工程");
     connect(openProjectAction, &QAction::triggered, this, &MainWindow::openProject);
@@ -94,6 +94,9 @@ void MainWindow::setupToolBar(){
 
     QAction *importAction = toolBar->addAction("导入资源");
     connect(importAction, &QAction::triggered, this, &MainWindow::importImages);
+
+    QAction *openProjectAction = toolBar->addAction("打开工程");
+    connect(openProjectAction, &QAction::triggered, this, &MainWindow::openProject);
 
     QAction *saveProjectAction = toolBar->addAction("保存工程");
     connect(saveProjectAction, &QAction::triggered, this, &MainWindow::saveProject);
@@ -157,34 +160,44 @@ void MainWindow::setupCentralWidget(){
     auto *bottomTabs = new QTabWidget(rightWidget);
 
     auto *parameterWidget = new QWidget(bottomTabs);
-    auto *parameterLayout = new QFormLayout(parameterWidget);
+    m_parameterLayout = new QFormLayout(parameterWidget);
 
     m_effectCombo = new QComboBox(parameterWidget);
     m_effectCombo->addItems({{"Null", "Grayscale", "Invert", "Sepia", "Blur"}});
-    connect(m_effectCombo, 
-        &QComboBox::currentTextChanged, this, [this](const QString &){
+    connect(m_effectCombo, &QComboBox::currentTextChanged, 
+        this, [this](const QString &){
+            updateEffectParameterPanel();
             refreshEffectPreview();
     });
 
-    auto *intensitySpin = new QDoubleSpinBox(parameterWidget);
-    intensitySpin->setRange(0.0, 10.0);
-    intensitySpin->setSingleStep(0.1);
-    intensitySpin->setValue(1.0);
+    // 特效参数面板
+    m_intensitySpin = new QDoubleSpinBox(parameterWidget);
+    m_intensitySpin->setRange(0.0, 10.0);
+    m_intensitySpin->setSingleStep(0.1);
+    m_intensitySpin->setValue(1.0);
+    connect(m_intensitySpin, static_cast<void(QDoubleSpinBox::*)(double)>(&QDoubleSpinBox::valueChanged), 
+        this, [this](double){
+        refreshEffectPreview();
+    }); // QDoubleSpinBox::valueChanged()有两个参数重载，一个double，一个const Qstring &
 
-    auto *radiusSlider = new QSlider(Qt::Horizontal, parameterWidget);
-    radiusSlider->setRange(0, 100);
-    radiusSlider->setValue(25);
+    m_radiusSlider = new QSlider(Qt::Horizontal, parameterWidget);
+    m_radiusSlider->setRange(0, 100);
+    m_radiusSlider->setValue(25);
+    connect(m_radiusSlider, &QSlider::valueChanged, 
+        this, [this](int){
+        refreshEffectPreview();
+    });
 
     m_outputPathEdit = new QLineEdit("./output", parameterWidget);
     m_taskProgressBar = new QProgressBar(parameterWidget);
     m_taskProgressBar->setRange(0, 100);
     m_taskProgressBar->setValue(0);
 
-    parameterLayout->addRow("当前特效", m_effectCombo);
-    parameterLayout->addRow("强度", intensitySpin);
-    parameterLayout->addRow("半径", radiusSlider);
-    parameterLayout->addRow("输出目录", m_outputPathEdit);
-    parameterLayout->addRow("任务进度", m_taskProgressBar);
+    m_parameterLayout->addRow("当前特效", m_effectCombo);
+    m_parameterLayout->addRow("强度", m_intensitySpin);
+    m_parameterLayout->addRow("半径", m_radiusSlider);
+    m_parameterLayout->addRow("输出目录", m_outputPathEdit);
+    m_parameterLayout->addRow("任务进度", m_taskProgressBar);
 
     auto *shaderEditor = new QPlainTextEdit(bottomTabs);
     shaderEditor->setPlainText("// Fragment shader placeholder\n// 后续在这里接入GLSL编辑与编译逻辑\n");
@@ -211,6 +224,7 @@ void MainWindow::setupCentralWidget(){
     mainSplitter->setStretchFactor(1, 4);
 
     setCentralWidget(mainSplitter);
+    updateEffectParameterPanel(); // 默认特效参数面板显示
 }
 
 void MainWindow::setupStatusBar(){
@@ -298,14 +312,13 @@ void MainWindow::refreshEffectPreview(){
         return;
     }
 
-    if(m_effectChain.isEmpty()){
-        m_previewImage = m_currentImage;
-        updatePreviewPixmap();
-        return;
-    }
-
     // 特效应用到读取图片，由于是预览所以不需要传入shouldCancel, onProgress
-    const QImage result = m_effectChain.apply(m_currentImage);
+    EffectChain previewEffectChain = m_effectChain;
+    const EffectType type = selectedEffectType();
+    if(type != EffectType::Null){
+        previewEffectChain.addPass(type);
+    }
+    QImage result = previewEffectChain.apply(m_currentImage);
 
     if(result.isNull()){
         m_previewImage = m_currentImage;
@@ -396,8 +409,6 @@ void MainWindow::addSelectedEffectPass(){
 
     const auto pass = createEffectPass(type);
     m_effectList->addItem(pass->name());
-
-    refreshEffectPreview();
 }
 
 void MainWindow::removeSelectedEffectPass(){
@@ -410,6 +421,17 @@ void MainWindow::removeSelectedEffectPass(){
     delete m_effectList->takeItem(row);
 
     refreshEffectPreview();
+}
+
+void MainWindow::updateEffectParameterPanel(){
+    if(!m_parameterLayout || !m_intensitySpin || !m_radiusSlider){
+        return;
+    }
+
+    const bool showBlurParameters = selectedEffectType() == EffectType::Blur;
+
+    m_parameterLayout->setRowVisible(m_intensitySpin, showBlurParameters);
+    m_parameterLayout->setRowVisible(m_radiusSlider, showBlurParameters);
 }
 
 QString structPlace::statusToString(Status status)
@@ -572,7 +594,7 @@ void MainWindow::saveProject(){
     // 弹窗选择保存位置和名字
     const QString filePath = QFileDialog::getSaveFileName(
         this, "保存工程", QString(), 
-        "RenderLaz Project(*.render)");
+        "RenderLaz Project(*.renderlaz)");
 
     if(filePath.isEmpty()){
         return;
