@@ -10,6 +10,7 @@ cmake_install.cmake
 CTestTestfile.cmake
 Makefile
 compile_commands.json
+CMakeUserPresets.json
 
 # Qt auto-generated
 *_autogen/
@@ -18,6 +19,8 @@ mocs_compilation.cpp
 
 # IDE
 .vs/
+.vscode/launch.json
+.vscode/tasks.json
 *.user
 *.suo
 .DS_Store

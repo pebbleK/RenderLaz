@@ -1,10 +1,26 @@
+param(
+    [string]$Preset = "windows-local",
+    [string[]]$PathPrefix = @()
+)
+
 $ErrorActionPreference = "Stop"
 
 $ProjectRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 
-$env:PATH = "D:\Qt\6.10.1\mingw_64\bin;D:\Qt\Tools\mingw1310_64\bin;$env:PATH"
+foreach ($Path in $PathPrefix) {
+    $env:PATH = "$Path$([IO.Path]::PathSeparator)$env:PATH"
+}
 
-cmake --preset windows-mingw
-cmake --build --preset windows-mingw
+cmake --preset $Preset
+cmake --build --preset $Preset
 
-& "$ProjectRoot\build-mingw\RenderLaz.exe"
+$WindowsExecutable = Join-Path $ProjectRoot "build/$Preset/RenderLaz.exe"
+$MacExecutable = Join-Path $ProjectRoot "build/$Preset/RenderLaz.app/Contents/MacOS/RenderLaz"
+
+if (Test-Path -LiteralPath $WindowsExecutable) {
+    & $WindowsExecutable
+} elseif (Test-Path -LiteralPath $MacExecutable) {
+    & $MacExecutable
+} else {
+    throw "RenderLaz executable was not found for preset '$Preset'."
+}

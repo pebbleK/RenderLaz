@@ -1,6 +1,4 @@
 {
     "cmake.useCMakePresets": "always",
-    "cmake.configurePreset": "windows-mingw",
-    "cmake.buildPreset": "windows-mingw",
     "cmake.copyCompileCommands": "${workspaceFolder}/compile_commands.json"
 }

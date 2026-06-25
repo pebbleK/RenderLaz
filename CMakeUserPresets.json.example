@@ -1,0 +1,50 @@
+{
+    "version": 6,
+    "configurePresets": [
+        {
+            "name": "windows-local",
+            "displayName": "Windows Local Qt/MinGW",
+            "inherits": "default",
+            "generator": "MinGW Makefiles",
+            "binaryDir": "${sourceDir}/build/windows-local",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Windows"
+            },
+            "cacheVariables": {
+                "CMAKE_C_COMPILER": "D:/Qt/Tools/mingw1310_64/bin/gcc.exe",
+                "CMAKE_CXX_COMPILER": "D:/Qt/Tools/mingw1310_64/bin/g++.exe",
+                "CMAKE_MAKE_PROGRAM": "D:/Qt/Tools/mingw1310_64/bin/mingw32-make.exe",
+                "CMAKE_PREFIX_PATH": "D:/Qt/6.10.1/mingw_64"
+            }
+        },
+        {
+            "name": "macos-local",
+            "displayName": "macOS Local Qt",
+            "inherits": "default",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build/macos-local",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Darwin"
+            },
+            "cacheVariables": {
+                "CMAKE_PREFIX_PATH": "/opt/homebrew"
+            }
+        }
+    ],
+    "buildPresets": [
+        {
+            "name": "windows-local",
+            "displayName": "Windows Local Qt/MinGW",
+            "configurePreset": "windows-local"
+        },
+        {
+            "name": "macos-local",
+            "displayName": "macOS Local Qt",
+            "configurePreset": "macos-local"
+        }
+    ]
+}
