@@ -66,26 +66,19 @@ void MainWindow::setupMenuBar(){
     fileMenu->addSeparator();
     fileMenu->addAction("退出", this, &QWidget::close);
 
-    QMenu *effectMenu = menuBar()->addMenu("特效");
-    effectMenu->addAction("添加Pass");
-    effectMenu->addAction("删除Pass");
-    effectMenu->addAction("保存预设");
-    effectMenu->addAction("加载预设");
-
-    QMenu *renderMenu = menuBar()->addMenu("渲染");
-    renderMenu->addAction("重新编译Shader");
-    renderMenu->addAction("开始预览");
-    renderMenu->addAction("暂停预览");
-
     QMenu *taskMenu = menuBar()->addMenu("任务");
-    QAction *startBatchAction = taskMenu->addAction("开始批处理");
+    QAction *startBatchAction = taskMenu->addAction("开始导出批处理");
     connect(startBatchAction, &QAction::triggered, this, &MainWindow::startBatchProcess);
 
     QAction *cancelTaskAction = taskMenu->addAction("取消任务");
     connect(cancelTaskAction, &QAction::triggered, this, &MainWindow::cancelBatchProcess);
 
     QMenu *helpMenu = menuBar()->addMenu("帮助");
-    helpMenu->addAction("关于");
+    QAction *aboutAction = helpMenu->addAction("关于");
+    connect(aboutAction, &QAction::triggered, this, [this](){
+    QMessageBox::about(this, "关于 RenderLaz", "官网：https://github.com/pebbleK/RenderLaz"
+    );
+});
 }
 
 void MainWindow::setupToolBar(){
@@ -100,12 +93,6 @@ void MainWindow::setupToolBar(){
 
     QAction *saveProjectAction = toolBar->addAction("保存工程");
     connect(saveProjectAction, &QAction::triggered, this, &MainWindow::saveProject);
-
-    toolBar->addSeparator();
-    toolBar->addAction("编译Shader");
-    toolBar->addAction("开始预览");
-    toolBar->addAction("停止预览");
-    toolBar->addSeparator();
 
     QAction *batchExportAction = toolBar->addAction("批量导出");
     connect(batchExportAction, &QAction::triggered, this, &MainWindow::startBatchProcess);

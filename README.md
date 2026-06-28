@@ -30,11 +30,29 @@ RenderLaz 是一个基于 Qt/C++ 的 Shader 图像特效编辑器。项目用于
 
 仓库里的 `CMakePresets.json` 只保存跨平台共享配置，不保存 Qt、编译器、Ninja/MinGW 等本机绝对路径。
 
-每台电脑首次拉取后，复制 `CMakeUserPresets.json.example` 为 `CMakeUserPresets.json`，再按本机安装路径修改其中的 `CMAKE_PREFIX_PATH`、编译器路径或生成器。`CMakeUserPresets.json` 已加入 `.gitignore`，不会被提交，也不会在 `git pull` 后覆盖其他电脑的配置。
+首次拉取后，复制 `CMakeUserPresets.json.example` 为 `CMakeUserPresets.json`，再按本机安装路径修改其中的 `CMAKE_PREFIX_PATH`、编译器路径或生成器。
 
-VS Code/CMake Tools 会自动读取 `CMakePresets.json` 和本机的 `CMakeUserPresets.json`。选择本机 preset 后再 configure/build 即可。`compile_commands.json` 会复制到项目根目录，clangd 直接读取项目根目录的编译数据库。
+## 构建并运行
 
-如果需要 VS Code 调试配置或自定义 tasks，请在本机创建 `.vscode/launch.json` 或 `.vscode/tasks.json`。这两个文件依赖可执行文件路径、调试器路径和环境变量，已作为本机配置忽略。
+各平台运行脚本：脚本会按当前系统自动选择对应 preset。
+
+```powershell
+.\build-run.ps1          # Windows
+```
+
+```bash
+./build-run.sh           # macOS / Linux
+```
+
+或显式指定 preset：
+
+```powershell
+.\build-run.ps1 windows-local
+```
+
+```bash
+./build-run.sh macos-local
+```
 
 ## 当前状态
 
