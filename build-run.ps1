@@ -1,18 +1,26 @@
 param(
-    [string]$Preset = "",
+    [string]$Preset = "windows-local",
     [string[]]$PathPrefix = @()
 )
 
-if (-not $Preset) {
-    $Preset = if ($IsWindows -or $env:OS -eq 'Windows_NT') { "windows-local" }
-              elseif ($IsMacOS) { "macos-local" }
-              else { "default" }
+$ErrorActionPreference = "Stop"
+
+$ProjectRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
+
+foreach ($Path in $PathPrefix) {
+    $env:PATH = "$Path$([IO.Path]::PathSeparator)$env:PATH"
 }
 
-$presetList = cmake --list-presets 2>$null
-if ($presetList -notmatch """$Preset""") {
-    Write-Warning "Preset '$Preset' not found, falling back to 'default'"
-    $Preset = "default"
-}
+cmake --preset $Preset
+cmake --build --preset $Preset
 
-& (Join-Path $PSScriptRoot "bulid-run.ps1") -Preset $Preset -PathPrefix $PathPrefix
+$WindowsExecutable = Join-Path $ProjectRoot "build/$Preset/RenderLaz.exe"
+$MacExecutable = Join-Path $ProjectRoot "build/$Preset/RenderLaz.app/Contents/MacOS/RenderLaz"
+
+if (Test-Path -LiteralPath $WindowsExecutable) {
+    & $WindowsExecutable
+} elseif (Test-Path -LiteralPath $MacExecutable) {
+    & $MacExecutable
+} else {
+    throw "RenderLaz executable was not found for preset '$Preset'."
+}
