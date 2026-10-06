@@ -1,3 +1,9 @@
+/**
+ * @file NormalEffect.h
+ * @brief CPU 图像特效实现
+ * @details 基于 QImage 逐像素计算的特效集合：Null（直通）、Grayscale（灰度）、
+ *          Invert（反色）、Sepia（棕褐色）。主要使用cpu进行像素计算，未调用图形API, 每个特效在逐行扫描时都会检查取消，标志并按行上报进度，便于大图处理时响应中断。
+ */
 #pragma once
 
 #include "EffectPass.h"

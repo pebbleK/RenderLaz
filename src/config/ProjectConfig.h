@@ -1,3 +1,10 @@
+/**
+ * @file ProjectConfig.h
+ * @brief 工程文件的保存与读取
+ * @details 定义可持久化的工程状态 ProjectState，并提供与 JSON 文件互转的静态接口。
+ *          工程内容包含资源路径列表、当前编辑的图片、特效链类型序列和输出目录，
+ *          另附 EffectType 与字符串之间的转换工具，用于序列化与反序列化。
+ */
 #pragma once
 
 #include "../effect/EffectPass.h"

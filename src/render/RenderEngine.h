@@ -1,3 +1,11 @@
+/**
+ * @file RenderEngine.h
+ * @brief 基于 Qt RHI 的离屏渲染引擎
+ * @details 负责 RHI 后端的初始化与平台选择（macOS 使用 Metal，Windows 使用
+ *          OpenGLES2，其余平台回退到 Null 后端），加载编译好的 shader、维护顶点
+ *          缓冲和采样器等常驻 GPU 资源，并在离屏帧中执行渲染后回读为 QImage。
+ *          目前对外只提供高斯模糊的渲染接口，渲染管线在调用内部按 pass 构建。
+ */
 #pragma once
 
 #include <QImage>

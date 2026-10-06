@@ -1,3 +1,11 @@
+/**
+ * @file TaskManager.h
+ * @brief 批处理任务框架
+ * @details TaskManager 在独立线程上驱动 ImageBatchWorker，对输入图片列表依次应用
+ *          特效链并导出 PNG，通过信号上报每张图片的进度、完成或失败状态。
+ *          取消采用线程中断请求的方式实现，worker 在处理每张图片及特效执行过程
+ *          中检查该标志。
+ */
 #pragma once
 #include "../effect/EffectPass.h"
 

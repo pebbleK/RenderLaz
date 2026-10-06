@@ -1,3 +1,11 @@
+/**
+ * @file MainWindow.h
+ * @brief 应用主窗口
+ * @details 负责界面搭建与交互协调：左侧资源列表和特效链，右侧预览区与参数面板、
+ *          Shader 编辑、批处理任务、系统日志四个页签。串联资源导入、特效链编辑、
+ *          批处理导出、工程保存与打开等流程，并把子模块（ResourceManager、
+ *          TaskManager、Logger）的信号转发到对应控件。
+ */
 #pragma once
 #include "../logger/Logger.h"
 #include "../resource/ResourceManager.h"
