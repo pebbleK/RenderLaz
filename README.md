@@ -8,10 +8,34 @@ RenderLaz 是一个基于 Qt/C++ 的 Shader 图像特效编辑器。项目用于
 - 基础特效链管理。
 - 普通 CPU 图像特效，包括灰度、反色、棕褐色等。
 - 基于 Shader 的 Blur 特效。
+- GLSL 着色器在线编辑，编译后立即应用到预览与批处理导出。
 - 支持 windows 和 macOS 双平台 GPU 特效渲染。
 - 批量处理任务框架。
 - 工程配置保存与加载。
 - 应用日志输出。
+
+## 着色器编辑
+
+界面下方的「Shader编辑」页签可以直接修改 Blur 特效的片元着色器，点「编译并应用」后
+用 QShaderBaker 在运行时编译，无需重新构建工程；编译失败会在日志和弹窗中给出 glslang
+的具体报错行。「恢复默认」回到仓库内置的版本。
+
+编辑器中的着色器需要沿用 Blur 的接口约定，否则管线创建会失败：
+
+```glsl
+layout(location = 0) in vec2 vTexCoord;
+layout(location = 0) out vec4 fragColor;
+
+layout(std140, binding = 0) uniform BlurParameter{
+    vec2 uTexelSize;
+    vec2 uDirection;
+    float uRadius;
+};
+
+layout(binding = 1) uniform sampler2D uTexture;
+```
+
+着色器会被横向、纵向执行两次，`uDirection` 即当前 pass 的方向。
 
 ## 支持平台
 

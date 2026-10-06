@@ -8,6 +8,8 @@
 #include <QThread>
 #include <QVector2D>
 #include <QColor>
+#include <QMutex>
+#include <QMutexLocker>
 #include <QOffscreenSurface>
 
 namespace{
@@ -25,9 +27,26 @@ namespace{
         }
     }
 
+    /*
+    用户着色器存放处。批处理线程和界面线程都会读它，用互斥量保护。
+    QShader 内部是引用计数加写时复制，副本在别的线程里用是安全的。
+    */
+    QMutex g_userShaderMutex;
+    QShader g_userFragmentShader;
+
 }
 
 RenderEngine::RenderEngine() = default;
+
+void RenderEngine::setUserFragmentShader(const QShader &shader){
+    QMutexLocker locker(&g_userShaderMutex);
+    g_userFragmentShader = shader;
+}
+
+QShader RenderEngine::userFragmentShader(){
+    QMutexLocker locker(&g_userShaderMutex);
+    return g_userFragmentShader;
+}
 
 RenderEngine::~RenderEngine(){
     releaseResources();
@@ -121,6 +140,13 @@ bool RenderEngine::loadShaders(QString *errorMessage){
     m_vertexShader = loadShader(":/shaders/fullscreen.vert.qsb");
     if(!m_vertexShader){
         return false;
+    }
+
+    // 编辑器编译出的着色器优先，没有配置时回退到构建期烘焙的 blur
+    const QShader userShader = userFragmentShader();
+    if(userShader.isValid()){
+        m_blurShader = new QShader(userShader);
+        return true;
     }
 
     m_blurShader = loadShader(":/shaders/blur.frag.qsb");

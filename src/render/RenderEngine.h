@@ -12,6 +12,8 @@
 #include <QString>
 #include <memory>
 
+#include <rhi/qshader.h>
+
 class QRhi;
 class QRhiBuffer;
 class QRhiGraphicsPipeline;
@@ -30,8 +32,16 @@ public:
     RenderEngine();
     ~RenderEngine();
 
-    QImage renderBlur(const QImage &image, 
+    QImage renderBlur(const QImage &image,
         float radius, QString *errorMessage = nullptr);
+
+    /*
+    用户从编辑器编译出来的片元着色器。设为有效值后，后续所有
+    RenderEngine 实例都改用它，批处理线程和界面预览因此共享同一份着色器。
+    传入空 QShader 则回到内置的 blur 着色器。
+    */
+    static void setUserFragmentShader(const QShader &shader);
+    static QShader userFragmentShader();
 
 private:
     bool initialize(QString *errorMessage);

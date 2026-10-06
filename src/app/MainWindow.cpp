@@ -1,10 +1,14 @@
 #include "../app/MainWindow.h"
+#include "../render/RenderEngine.h"
+#include "../render/ShaderCompiler.h"
 
 #include <QAction>
 #include <QComboBox>
 #include <QDoubleSpinBox>
+#include <QFontDatabase>
 #include <QFormLayout>
 #include <QGroupBox>
+#include <QHBoxLayout>
 #include <QHeaderView>
 #include <QLabel>
 #include <QLineEdit>
@@ -21,6 +25,7 @@
 #include <QToolBar>
 #include <QVBoxLayout>
 #include <QAbstractItemView>
+#include <QFile>
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QListWidgetItem>
@@ -186,8 +191,28 @@ void MainWindow::setupCentralWidget(){
     m_parameterLayout->addRow("输出目录", m_outputPathEdit);
     m_parameterLayout->addRow("任务进度", m_taskProgressBar);
 
-    auto *shaderEditor = new QPlainTextEdit(bottomTabs);
-    shaderEditor->setPlainText("// Fragment shader placeholder\n// 后续在这里接入GLSL编辑与编译逻辑\n");
+    auto *shaderWidget = new QWidget(bottomTabs);
+    auto *shaderLayout = new QVBoxLayout(shaderWidget);
+
+    m_shaderEditor = new QPlainTextEdit(shaderWidget);
+    m_shaderEditor->setFont(QFontDatabase::systemFont(QFontDatabase::FixedFont));
+    m_shaderEditor->setPlainText(defaultFragmentShaderSource());
+
+    auto *shaderButtonLayout = new QHBoxLayout();
+    auto *applyShaderButton = new QPushButton("编译并应用", shaderWidget);
+    auto *resetShaderButton = new QPushButton("恢复默认", shaderWidget);
+    connect(applyShaderButton, &QPushButton::clicked, this, &MainWindow::applyShaderSource);
+    connect(resetShaderButton, &QPushButton::clicked, this, &MainWindow::resetShaderSource);
+
+    m_shaderStatusLabel = new QLabel("当前使用内置 Blur 着色器", shaderWidget);
+
+    shaderButtonLayout->addWidget(applyShaderButton);
+    shaderButtonLayout->addWidget(resetShaderButton);
+    shaderButtonLayout->addStretch();
+    shaderButtonLayout->addWidget(m_shaderStatusLabel);
+
+    shaderLayout->addWidget(m_shaderEditor);
+    shaderLayout->addLayout(shaderButtonLayout);
 
     m_taskTable = new QTableWidget(0, 5, bottomTabs);
     m_taskTable->setHorizontalHeaderLabels({"资源", "特效预设", "状态", "进度", "输出路径"});
@@ -197,7 +222,7 @@ void MainWindow::setupCentralWidget(){
     m_logTextEdit->setReadOnly(true);
 
     bottomTabs->addTab(parameterWidget, "参数面板");
-    bottomTabs->addTab(shaderEditor, "Shader编辑");
+    bottomTabs->addTab(shaderWidget, "Shader编辑");
     bottomTabs->addTab(m_taskTable, "批处理任务");
     bottomTabs->addTab(m_logTextEdit, "系统日志");
 
@@ -699,4 +724,67 @@ void MainWindow::refreshEffectList(){
     for(const QString &name : names){
         m_effectList->addItem(name);
     }
+}
+QString MainWindow::defaultFragmentShaderSource() const{
+    QFile file(":/shadersrc/blur.frag");
+    if(!file.open(QIODevice::ReadOnly)){
+        return QStringLiteral("// 无法读取默认着色器源码，请检查资源是否正确打包\n");
+    }
+
+    return QString::fromUtf8(file.readAll());
+}
+
+void MainWindow::applyShaderSource(){
+    if(!m_shaderEditor){
+        return;
+    }
+
+    const QByteArray source = m_shaderEditor->toPlainText().toUtf8();
+
+    QString errorMessage;
+    const QShader shader = ShaderCompiler::compile(
+        source, QShader::FragmentStage, &errorMessage);
+
+    if(!shader.isValid()){
+        m_logger.error("着色器编译失败：" + errorMessage);
+        if(m_shaderStatusLabel){
+            m_shaderStatusLabel->setText("编译失败，仍在使用上一版着色器");
+        }
+        QMessageBox::warning(this, "编译着色器", errorMessage);
+        return;
+    }
+
+    RenderEngine::setUserFragmentShader(shader);
+
+    if(m_shaderStatusLabel){
+        m_shaderStatusLabel->setText("正在使用编辑器中的着色器");
+    }
+    m_logger.info("着色器编译成功，已应用到渲染");
+
+    /*
+    预览是按特效链走的，链里没有 Blur 就看不到着色器的效果，
+    所以自动补一个 pass，并记一条日志让用户知道链被改动了。
+    */
+    if(!m_effectChain.effectTypes().contains(EffectType::Blur)){
+        m_effectChain.addPass(EffectType::Blur);
+        refreshEffectList();
+        m_logger.info("特效链中原本没有 Blur，已自动添加以便预览");
+    }
+
+    refreshEffectPreview();
+}
+
+void MainWindow::resetShaderSource(){
+    RenderEngine::setUserFragmentShader(QShader());
+
+    if(m_shaderEditor){
+        m_shaderEditor->setPlainText(defaultFragmentShaderSource());
+    }
+
+    if(m_shaderStatusLabel){
+        m_shaderStatusLabel->setText("当前使用内置 Blur 着色器");
+    }
+
+    m_logger.info("已恢复内置 Blur 着色器");
+    refreshEffectPreview();
 }

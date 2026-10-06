@@ -90,6 +90,11 @@ private:
     void saveProject();
     void openProject();
 
+    // 着色器编辑
+    QString defaultFragmentShaderSource() const;
+    void applyShaderSource();
+    void resetShaderSource();
+
     ProjectState currentProjectState() const;
     void applyProjectState(const ProjectState &state);
     void refreshEffectList();
@@ -122,4 +127,8 @@ private:
     QPushButton *m_removePassButton = nullptr;
     QFormLayout *m_parameterLayout = nullptr;
     EffectChain m_effectChain;
+
+    // 着色器编辑控件
+    QPlainTextEdit *m_shaderEditor = nullptr;
+    QLabel *m_shaderStatusLabel = nullptr;
 };
