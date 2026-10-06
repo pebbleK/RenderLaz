@@ -14,8 +14,14 @@ foreach ($Path in $PathPrefix) {
 cmake --preset $Preset
 cmake --build --preset $Preset
 
-$WindowsExecutable = Join-Path $ProjectRoot "build/$Preset/RenderLaz.exe"
-$MacExecutable = Join-Path $ProjectRoot "build/$Preset/RenderLaz.app/Contents/MacOS/RenderLaz"
+# 构建目录由 preset 的 binaryDir 决定：可能带 preset 名子目录，也可能直接用 build/
+$BinaryDir = Join-Path $ProjectRoot "build/$Preset"
+if (-not (Test-Path -LiteralPath (Join-Path $BinaryDir "CMakeCache.txt"))) {
+    $BinaryDir = Join-Path $ProjectRoot "build"
+}
+
+$WindowsExecutable = Join-Path $BinaryDir "RenderLaz.exe"
+$MacExecutable = Join-Path $BinaryDir "RenderLaz.app/Contents/MacOS/RenderLaz"
 
 if (Test-Path -LiteralPath $WindowsExecutable) {
     & $WindowsExecutable

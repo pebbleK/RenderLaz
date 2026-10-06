@@ -29,8 +29,14 @@ fi
 cmake --preset "$preset"
 cmake --build --preset "$preset"
 
-mac_executable="$project_root/build/$preset/RenderLaz.app/Contents/MacOS/RenderLaz"
-unix_executable="$project_root/build/$preset/RenderLaz"
+# 构建目录由 preset 的 binaryDir 决定：可能带 preset 名子目录，也可能直接用 build/
+binary_dir="$project_root/build/$preset"
+if [[ ! -f "$binary_dir/CMakeCache.txt" ]]; then
+    binary_dir="$project_root/build"
+fi
+
+mac_executable="$binary_dir/RenderLaz.app/Contents/MacOS/RenderLaz"
+unix_executable="$binary_dir/RenderLaz"
 
 if [[ -x "$mac_executable" ]]; then
     "$mac_executable"

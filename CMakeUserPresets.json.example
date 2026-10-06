@@ -24,7 +24,7 @@
             "displayName": "macOS Local Qt",
             "inherits": "default",
             "generator": "Ninja",
-            "binaryDir": "${sourceDir}/build/macos-local",
+            "binaryDir": "${sourceDir}/build",
             "condition": {
                 "type": "equals",
                 "lhs": "${hostSystemName}",
