@@ -1,0 +1,39 @@
+{
+  "version": "2.0.0",
+  "options": {
+    "env": {
+      "PATH": "${env:HOME}/.cargo/bin:${env:PATH}"
+    }
+  },
+  "tasks": [
+    {
+      "label": "dev",
+      "detail": "启动 Tauri 开发态（Vite + 桌面窗口）",
+      "type": "shell",
+      "command": "npm run tauri dev",
+      "problemMatcher": [],
+      "group": { "kind": "build", "isDefault": true }
+    },
+    {
+      "label": "build",
+      "detail": "产出安装包",
+      "type": "shell",
+      "command": "npm run tauri build",
+      "problemMatcher": []
+    },
+    {
+      "label": "test",
+      "detail": "前端单元测试 + Rust 测试（含类型生成）",
+      "type": "shell",
+      "command": "npm run test && cargo test --manifest-path src-tauri/Cargo.toml",
+      "problemMatcher": []
+    },
+    {
+      "label": "typecheck",
+      "detail": "只做类型检查与前端打包",
+      "type": "shell",
+      "command": "npm run build",
+      "problemMatcher": []
+    }
+  ]
+}

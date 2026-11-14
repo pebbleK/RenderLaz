@@ -1,4 +1,18 @@
 {
-    "cmake.useCMakePresets": "always",
-    "cmake.copyCompileCommands": "${workspaceFolder}/compile_commands.json"
+  "rust-analyzer.check.command": "clippy",
+  "rust-analyzer.linkedProjects": ["src-tauri/Cargo.toml"],
+  "typescript.tsdk": "node_modules/typescript/lib",
+  "files.exclude": {
+    "**/node_modules": true,
+    "**/target": true
+  },
+  "search.exclude": {
+    "**/dist": true,
+    "**/target": true,
+    "**/node_modules": true
+  },
+  "files.watcherExclude": {
+    "**/target/**": true,
+    "**/node_modules/**": true
+  }
 }
